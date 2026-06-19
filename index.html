@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperCheck — Understand Your Superannuation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --teal: #0D7377;
+    --grey: #F5F7FA;
+    --amber-text: #B0560F;   /* darker amber that meets WCAG AA on light bgs */
+    --green: #1E7D32;
+    --red: #B3261E;
+    --muted: #5C6B82;
+    --border: #D8DEE9;
+    --base-font: 18px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: var(--base-font);
+    line-height: 1.6;
+    color: var(--navy);
+    background: #ffffff;
+  }
+
+  /* Scale the whole layout (every rule hardcodes px, so bumping the base
+     font alone has no effect — zoom scales all sizes and spacing together). */
+  body.large-text { zoom: 1.15; }
+
+  /* Visible focus ring for keyboard users on every interactive element. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible,
+  .toggle-card:focus-within {
+    outline: 3px solid var(--teal);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Visually-hidden helper for screen-reader-only text. */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Text-size toggle (top of page) */
+  .a11y-bar {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 12px 24px 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+
+  .text-size-group {
+    display: inline-flex;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .text-size-group button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    min-height: 44px;
+    padding: 0 16px;
+    border: none;
+    background: #fff;
+    color: var(--navy);
+    cursor: pointer;
+  }
+
+  .text-size-group button[aria-pressed="true"] {
+    background: var(--teal);
+    color: #fff;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--navy);
+    margin: 0 0 8px 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  header.hero {
+    text-align: center;
+    padding: 56px 24px 48px;
+  }
+
+  header.hero h1 {
+    font-size: 42px;
+    margin-bottom: 16px;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  header.hero p {
+    color: var(--muted);
+    font-size: 19px;
+    max-width: 640px;
+    margin: 0 auto 28px;
+  }
+
+  .hero-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--teal);
+    border: none;
+    border-radius: 10px;
+    padding: 16px 36px;
+    cursor: pointer;
+  }
+
+  .hero-btn:hover { background: #0a5c5f; }
+
+  /* ---------- Proof points ---------- */
+
+  .proof-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .proof-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--navy);
+  }
+
+  .proof-item svg {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+  }
+
+  /* ---------- Calculation narrative ---------- */
+
+  .calc-narrative {
+    max-width: 520px;
+    margin: 20px auto 0;
+    min-height: 0;
+  }
+
+  .calc-narrative .line {
+    font-size: 16px;
+    color: var(--muted);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    padding: 2px 0;
+  }
+
+  .calc-narrative .line.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .calc-narrative .line.done {
+    color: var(--teal);
+    font-weight: 700;
+  }
+
+  /* ---------- "What is this?" explainers ---------- */
+
+  .what-toggle {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--teal);
+    background: none;
+    border: none;
+    padding: 12px 0;
+    min-height: 44px;
+    margin-top: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    display: inline-block;
+  }
+
+  .what-text {
+    display: none;
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.55;
+  }
+
+  .what-text.open { display: block; }
+
+  /* ---------- Why trust this ---------- */
+
+  .trust-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 32px;
+  }
+
+  .trust-block {
+    background: var(--grey);
+    border-radius: 14px;
+    padding: 28px 24px;
+  }
+
+  .trust-block h3 {
+    font-size: 21px;
+    margin-bottom: 12px;
+  }
+
+  .trust-block p {
+    font-size: 17px;
+    margin: 0;
+  }
+
+  .trust-block a { color: var(--teal); }
+
+  /* ---------- Fee band ---------- */
+
+  .fee-band {
+    background: #FCF1E6;
+    padding: 56px 0;
+  }
+
+  .fee-band h2 { font-size: 30px; }
+
+  .fee-band p {
+    max-width: 720px;
+  }
+
+  .section-rule {
+    height: 4px;
+    background: var(--teal);
+    width: 100%;
+    border: none;
+    margin: 0;
+  }
+
+  section {
+    padding: 48px 0 64px;
+  }
+
+  /* ---------- Form ---------- */
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 32px;
+    margin-top: 32px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .field label {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--navy);
+  }
+
+  .field input[type="text"],
+  .field input[type="number"],
+  .field select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--navy);
+    width: 100%;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--teal);
+  }
+
+  .helper {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .error-msg {
+    font-size: 15px;
+    color: var(--red);
+    margin-top: 6px;
+    font-weight: 500;
+    display: none;
+  }
+
+  .field.has-error input,
+  .field.has-error select {
+    border-color: var(--red);
+  }
+
+  .field.has-error .error-msg {
+    display: block;
+  }
+
+  /* Fund type description */
+  .fund-desc {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 6px;
+    background: var(--grey);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  /* Retirement type toggle cards */
+  .toggle-group {
+    display: flex;
+    gap: 16px;
+  }
+
+  .toggle-card {
+    flex: 1;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--navy);
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .toggle-card.active {
+    border-color: var(--teal);
+    background: #E6F3F3;
+    color: var(--teal);
+  }
+
+  /* Keep the radio in the tab order for keyboard users, but visually hidden.
+     Focus is shown via .toggle-card:focus-within. */
+  .toggle-card input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+
+  .full-width { grid-column: 1 / -1; }
+
+  /* Contribute-to-research card (public data collection, opt-in) */
+  .contribute-card {
+    margin-top: 40px;
+    background: #EAF4F4;
+    border: 2px solid var(--teal);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .contribute-card h3 { margin-bottom: 10px; }
+  .contribute-card p { font-size: 16px; color: var(--navy); margin: 0 0 16px; }
+  .contribute-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 16px;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+  .contribute-consent input { margin-top: 4px; width: 20px; height: 20px; flex-shrink: 0; }
+  #contributeSubmit {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--teal);
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  #contributeSubmit:hover { background: #0a5c5f; }
+  #contributeSubmit:disabled { background: #9bb9ba; cursor: not-allowed; }
+  .contribute-status { font-size: 15px; margin-left: 14px; font-weight: 600; }
+  .contribute-status.ok { color: var(--green); }
+  .contribute-status.err { color: var(--red); }
+
+  /* Sticky calculate button */
+  .calc-btn-wrap {
+    margin-top: 40px;
+    text-align: center;
+  }
+
+  #calcBtn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--teal);
+    border: none;
+    border-radius: 12px;
+    padding: 18px 48px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  #calcBtn:hover { background: #0a5c5f; }
+
+  /* ---------- Results ---------- */
+
+  .results-hidden { display: none; }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 32px;
+  }
+
+  .card {
+    background: var(--grey);
+    border-radius: 14px;
+    padding: 28px;
+  }
+
+  /* The pension-gap card is the story card — give it visual weight and let
+     it fill the remaining width on the second row of the 3-column grid. */
+  .card.gap-card {
+    grid-column: 2 / 4;
+    background: #EAF4F4;
+    border: 2px solid var(--teal);
+  }
+
+  .card-value.teal { color: var(--teal); }
+
+  .card-label {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+
+  .card-value {
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--navy);
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 8px;
+  }
+
+  .card-value.amber { color: var(--amber-text); }
+
+  .card-sub {
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  /* Scope tag — labels whether a figure is super-only or super+pension. */
+  .scope-tag {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: #E6F3F3;
+    color: var(--teal);
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+
+  .scope-tag.pension {
+    background: #E3F2E5;
+    color: var(--green);
+  }
+
+  .chart-caption {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .badge.green { background: #E3F2E5; color: var(--green); }
+  .badge.amber { background: #FBEADE; color: #9A4D14; }
+  .badge.red { background: #FBE6E5; color: var(--red); }
+
+  .chart-section {
+    margin-top: 48px;
+    background: var(--grey);
+    border-radius: 14px;
+    padding: 28px;
+  }
+
+  .chart-section h3 {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 20px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 420px;
+  }
+  .chart-wrap.depletion-wrap {
+    height: 260px;
+  }
+
+  /* ---------- Scenario Explorer ---------- */
+
+  .sliders-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    margin-top: 32px;
+  }
+
+  .slider-card {
+    background: var(--grey);
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+
+  .slider-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .slider-top label {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  .slider-value {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--teal);
+  }
+
+  .delta-badge {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #E6F3F3;
+    color: var(--teal);
+  }
+
+  .delta-badge.negative {
+    background: #FBE6E5;
+    color: var(--red);
+  }
+
+  /* Element height gives a 44px touch target; the visible track is
+     drawn thinner via the track pseudo-elements below. */
+  input[type="range"] {
+    width: 100%;
+    height: 44px;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    border: 4px solid #fff;
+    box-shadow: 0 0 0 1px var(--teal);
+    margin-top: -9px;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    border: 4px solid #fff;
+    box-shadow: 0 0 0 1px var(--teal);
+  }
+
+  footer {
+    text-align: center;
+    padding: 32px 24px 48px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* ---------- Mobile ---------- */
+
+  /* Cards: 3-up desktop (3 + a wide gap card), 2-up tablet, stacked mobile. */
+  @media (max-width: 980px) {
+    .cards-grid { grid-template-columns: 1fr 1fr; }
+    .card.gap-card { grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 600px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .card.gap-card { grid-column: auto; }
+  }
+
+  @media (max-width: 760px) {
+    body { padding-bottom: 90px; }
+
+    .form-grid { grid-template-columns: 1fr; }
+
+    header.hero h1 { font-size: 32px; }
+
+    .proof-row { grid-template-columns: 1fr; gap: 14px; }
+
+    .trust-grid { grid-template-columns: 1fr; }
+
+    .calc-btn-wrap {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 14px 16px;
+      box-shadow: 0 -4px 16px rgba(27,42,74,0.12);
+      margin-top: 0;
+      z-index: 50;
+    }
+
+    #calcBtn {
+      width: 100%;
+      padding: 16px;
+    }
+
+    .chart-wrap { height: 320px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="a11y-bar">
+  <span id="textSizeLabel">Text size</span>
+  <div class="text-size-group" role="group" aria-labelledby="textSizeLabel">
+    <button type="button" id="textNormal" aria-pressed="true">Normal</button>
+    <button type="button" id="textLarge" aria-pressed="false">Large</button>
+  </div>
+</div>
+
+<header class="hero">
+  <h1>Your super fund gave you one number. Here's the other 4,999.</h1>
+  <p>SuperCheck replays your retirement against 5,000 market histories — booms, crashes, and everything between — and tells you how often your plan actually holds.</p>
+  <button class="hero-btn" id="heroBtn">Check my super</button>
+</header>
+
+<hr class="section-rule">
+
+<!-- ============ INPUT FORM ============ -->
+<section id="input-section">
+  <div class="container">
+
+    <div class="proof-row">
+      <div class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0D7377" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-9M22 20H2"/></svg>
+        <span>Built on 21 years of real Australian fund returns</span>
+      </div>
+      <div class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0D7377" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span>Tested against data it never saw — and it passed</span>
+      </div>
+      <div class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0D7377" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5c-2-1.5-5-2-9-2v16c4 0 7 .5 9 2 2-1.5 5-2 9-2V3c-4 0-7 .5-9 2zM12 5v16"/></svg>
+        <span>Shows you the maths. Hides nothing.</span>
+      </div>
+    </div>
+
+    <h2>Tell us about your super</h2>
+    <p style="color: var(--muted);">Enter your details below. Everything is calculated right here in your browser, and nothing is sent anywhere — unless you choose to submit your anonymous response to our research after seeing your results.</p>
+
+    <div class="form-grid">
+
+      <!-- 1. Current super balance -->
+      <div class="field" id="field-balance">
+        <label for="balance">Current super balance</label>
+        <input type="text" inputmode="decimal" id="balance" placeholder="$85,000">
+        <div class="helper">From your latest super statement or fund app</div>
+        <div class="error-msg">Please enter a valid balance (0 or more).</div>
+      </div>
+
+      <!-- 2. Current age -->
+      <div class="field" id="field-age">
+        <label for="age">Current age</label>
+        <input type="number" id="age" min="18" max="75" placeholder="45">
+        <div class="helper">Must be between 18 and 75</div>
+        <div class="error-msg">Please enter an age between 18 and 75.</div>
+      </div>
+
+      <!-- 3. Annual salary -->
+      <div class="field" id="field-salary">
+        <label for="salary">Annual salary before tax</label>
+        <input type="text" inputmode="decimal" id="salary" placeholder="$95,000">
+        <div class="helper">Your gross yearly income before tax</div>
+        <div class="error-msg">Please enter a valid salary (0 or more).</div>
+      </div>
+
+      <!-- 4. Extra monthly contributions -->
+      <div class="field" id="field-extra">
+        <label for="extra">Extra monthly contributions</label>
+        <input type="text" inputmode="decimal" id="extra" placeholder="$0" value="0">
+        <div class="helper">Any amount you add beyond your employer's 12%</div>
+        <div class="error-msg">Please enter a valid amount (0 or more).</div>
+      </div>
+
+      <!-- 5. Fund type -->
+      <div class="field" id="field-fund">
+        <label for="fundType">Fund type</label>
+        <select id="fundType">
+          <option value="High Growth">High Growth</option>
+          <option value="Balanced" selected>Balanced</option>
+          <option value="Conservative">Conservative</option>
+          <option value="Cash">Cash</option>
+        </select>
+        <div class="fund-desc" id="fundDesc"></div>
+      </div>
+
+      <!-- 6. Annual fee percentage -->
+      <div class="field" id="field-fee">
+        <label for="fee">Annual fee percentage</label>
+        <input type="number" id="fee" step="0.1" min="0" max="5" value="0.4">
+        <div class="helper">Industry fund average: 0.4% (APRA 2023). Retail fund average: 0.3% (APRA 2023).</div>
+        <div class="error-msg">Please enter a fee percentage between 0 and 5.</div>
+      </div>
+
+      <!-- 7. Retirement age -->
+      <div class="field" id="field-retireAge">
+        <label for="retireAge">Expected retirement age</label>
+        <input type="number" id="retireAge" min="55" max="80" value="67">
+        <div class="helper">Must be between 55 and 80, and after your current age</div>
+        <div class="error-msg">Retirement age must be between 55 and 80, and greater than your current age.</div>
+      </div>
+
+      <!-- 8. Retirement type -->
+      <div class="field full-width" id="field-retireType">
+        <label>Retirement type</label>
+        <div class="toggle-group">
+          <label class="toggle-card active" id="toggle-single">
+            <input type="radio" name="retireType" value="Single" checked> Single
+          </label>
+          <label class="toggle-card" id="toggle-couple">
+            <input type="radio" name="retireType" value="Couple"> Couple
+          </label>
+        </div>
+        <div class="helper">This determines which ASFA retirement standard we compare you against</div>
+      </div>
+
+      <!-- 9. Homeowner -->
+      <div class="field" id="field-homeowner">
+        <label>Do you own your home?</label>
+        <div class="toggle-group">
+          <label class="toggle-card active" id="toggle-home-yes">
+            <input type="radio" name="homeowner" value="Yes" checked> Yes
+          </label>
+          <label class="toggle-card" id="toggle-home-no">
+            <input type="radio" name="homeowner" value="No"> No
+          </label>
+        </div>
+        <div class="helper">Affects the pension assets test.</div>
+      </div>
+
+    </div>
+
+    <div class="calc-btn-wrap">
+      <button id="calcBtn">Calculate my super</button>
+    </div>
+
+    <div class="calc-narrative" id="calcNarrative" aria-live="polite">
+      <div class="line">Reading your details&hellip;</div>
+      <div class="line">Replaying 5,000 market histories &mdash; including 2008&hellip;</div>
+      <div class="line">Counting how many futures your plan survives&hellip;</div>
+      <div class="line done">Done. Here's your honest range.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-rule">
+
+<!-- ============ RESULTS DASHBOARD ============ -->
+<section id="results-section">
+  <div class="container">
+    <h2>Your results</h2>
+    <p style="color: var(--muted);" id="results-intro">Fill in your details above and press "Calculate my super" to see your projection.</p>
+
+    <div class="cards-grid results-hidden" id="cardsGrid">
+      <div class="card" id="cardBalanceWrap" role="group" aria-label="Projected balance">
+        <div class="card-label">Projected Balance</div>
+        <div class="card-value" id="cardBalance">$0</div>
+        <div id="cardBalanceBadge"></div>
+        <div class="card-sub">All figures in today's dollars.</div>
+        <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+        <div class="what-text">This is your middle-of-the-road outcome in today's dollars. Half our simulated futures beat it, half don't.</div>
+      </div>
+
+      <div class="card" id="cardPercentileWrap" role="group" aria-label="Your percentile">
+        <div class="card-label">Your Percentile</div>
+        <div class="card-value" id="cardPercentile">—</div>
+        <div class="card-sub" id="cardPercentileSub"></div>
+        <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+        <div class="what-text">Where you stand against Australians your age, using ATO median super balances by age (June 2022). This is a rough estimate — we assume balances roughly double every 25 percentile points around the median, so it won't be precise at the extremes (very low or very high balances). For ages outside 35–65, we compare you to the nearest age group we have data for.</div>
+      </div>
+
+      <div class="card" id="cardFeeDragWrap" role="group" aria-label="Fee drag">
+        <div class="card-label">Fee Drag</div>
+        <div class="card-value amber" id="cardFeeDrag">$0</div>
+        <div class="card-sub" id="cardFeeDragSub">lost to fees vs a low-cost fund (0.5% p.a.) over your investment horizon</div>
+        <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+        <div class="what-text">What your current fees cost you versus a 0.5% fund — compounded over your whole horizon. Fees are the one thing here you fully control.</div>
+      </div>
+
+      <div class="card" id="cardSurvivalWrap" role="group" aria-label="Money lasts to 90, super plus pension">
+        <div class="card-label">Money lasts to 90 <span class="scope-tag pension">super + pension</span></div>
+        <div class="card-value" id="cardSurvival">0%</div>
+        <div class="card-sub">drawing the ASFA comfortable budget each year</div>
+        <div class="card-sub" id="cardSurvivalSecondary"></div>
+        <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+        <div class="what-text">This includes the Age Pension, which rises as your super falls — the safety net is part of the maths now.</div>
+      </div>
+
+      <div class="card gap-card" id="cardGapWrap" role="group" aria-label="What the Age Pension is worth to you">
+        <div class="card-label">What the Age Pension is worth to you</div>
+        <div class="card-value teal" id="cardPensionGap">+0pp</div>
+        <div class="card-sub">the difference the pension makes to your money lasting to 90</div>
+        <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+        <div class="what-text">For most Australians, the pension is worth more than their super. It rises as your balance falls — a built-in safety net most calculators ignore.</div>
+      </div>
+    </div>
+
+    <div class="chart-section results-hidden" id="chartSection">
+      <h3>Range of possible outcomes at retirement <span class="scope-tag">super only</span></h3>
+      <div class="chart-subtitle">Your range of retirement outcomes</div>
+      <div class="chart-wrap">
+        <canvas id="fanChart" role="img" aria-label="Fan chart of projected super balance over time"></canvas>
+      </div>
+      <p class="chart-caption">This chart shows your super balance only. The survival figure below includes the Age Pension, which keeps paying even if super runs out.</p>
+      <button class="what-toggle" type="button" aria-expanded="false">what is this?</button>
+      <div class="what-text">The shaded band is where half of all futures landed. The bottom line is a bad decade, not a worst case. The top line is a great one. Nobody can tell you which line is yours — anyone who claims otherwise is guessing.</div>
+      <h3 style="margin-top: 36px;">When the money runs out across 5,000 simulations</h3>
+      <div class="chart-wrap depletion-wrap">
+        <canvas id="depletionChart" role="img" aria-label="Histogram of the age at which super runs out across 5,000 simulations"></canvas>
+      </div>
+    </div>
+
+    <!-- ============ CONTRIBUTE TO RESEARCH (opt-in) ============ -->
+    <div class="contribute-card results-hidden" id="contributeCard">
+      <h3>Help our research (optional)</h3>
+      <p>If you tick the box and submit, the anonymous figures above (your inputs and results) are added to a dataset for a student research project on retirement modelling. No names, contact details, fund names or employer names are collected or asked for. Taking part is voluntary — the calculator works whether or not you submit. This is illustrative modelling, not financial advice.</p>
+      <label class="contribute-consent">
+        <input type="checkbox" id="contributeConsent">
+        <span>I consent to share my anonymous inputs and results for this research.</span>
+      </label>
+      <div>
+        <button type="button" id="contributeSubmit" disabled>Submit my response</button>
+        <span class="contribute-status" id="contributeStatus" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-rule">
+
+<!-- ============ SCENARIO EXPLORER ============ -->
+<section id="scenario-section">
+  <div class="container">
+    <h2>Scenario explorer</h2>
+    <p style="color: var(--muted);" id="scenario-intro">Once you've calculated your super, try adjusting these to see how small changes could affect your outcome.</p>
+
+    <div class="sliders-grid results-hidden" id="slidersGrid">
+
+      <div class="slider-card">
+        <div class="slider-top">
+          <label for="slider-extra">Extra monthly contributions</label>
+          <span class="slider-value" id="slider-extra-value">$0</span>
+          <span class="delta-badge" id="slider-extra-delta">+$0</span>
+        </div>
+        <input type="range" id="slider-extra" min="0" max="1000" step="50" value="0">
+      </div>
+
+      <div class="slider-card">
+        <div class="slider-top">
+          <label for="slider-fee">Fee percentage</label>
+          <span class="slider-value" id="slider-fee-value">0.8%</span>
+          <span class="delta-badge" id="slider-fee-delta">+$0</span>
+        </div>
+        <input type="range" id="slider-fee" min="0.5" max="2.5" step="0.1" value="0.8">
+      </div>
+
+      <div class="slider-card">
+        <div class="slider-top">
+          <label for="slider-retireAge">Retirement age</label>
+          <span class="slider-value" id="slider-retireAge-value">67</span>
+          <span class="delta-badge" id="slider-retireAge-delta">+$0</span>
+        </div>
+        <input type="range" id="slider-retireAge" min="55" max="80" step="1" value="67">
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="section-rule">
+
+<!-- ============ WHY TRUST THIS ============ -->
+<section id="trust-section">
+  <div class="container">
+    <h2>Why trust this</h2>
+
+    <div class="trust-grid">
+      <div class="trust-block">
+        <h3>Real returns, not assumptions.</h3>
+        <p>Most calculators assume the market politely returns 7% a year forever. We use 21 years of actual published Australian fund returns — including the year balanced funds lost 21.8%.</p>
+      </div>
+      <div class="trust-block">
+        <h3>We checked our own work.</h3>
+        <p>The real test is data the model has never seen. We trained it on 2004–2014 only, then predicted a cohort starting in 2015 — and the actual 2024 outcome landed inside the predicted range. Three further cohorts (A, B and C) were internal consistency checks that confirmed the simulator's mechanics; these used the same data window as the fitted parameters, so they test the plumbing, not the forecasting.</p>
+      </div>
+      <div class="trust-block">
+        <h3>We tell you what we don't know.</h3>
+        <p>No Age Pension yet, so our survival numbers are deliberately harsh. Twenty-one years of data is good, not infinite. The full <a href="methodology_note.md">methodology</a> is one click away — read it and judge for yourself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEE STORY ============ -->
+<div class="fee-band">
+  <div class="container">
+    <h2>The most expensive thing you own might be a percentage.</h2>
+    <p>A 45-year-old with $120,000 in super retires at 67 with about $600,000 in a fund charging 0.5% — in today's dollars. The same person in a 1.5% fund retires with about $517,000. The missing $84,000 went to fees. Yours is calculated above. Go look at it again.</p>
+  </div>
+</div>
+
+<footer>
+  SuperCheck is a modelling tool only and does not constitute financial advice. Consult a licensed financial adviser for personal recommendations.
+  Return parameters fitted to Chant West SR50/SR25 median returns (2004&ndash;2024); fee defaults from the APRA MySuper Bulletin (2023).
+  If you choose to submit, your anonymous inputs and results are stored for a student research project; no names, contact, fund or employer details are collected.
+</footer>
+
+<script>
+/* =====================================================================
+   ►►► PASTE YOUR GOOGLE APPS SCRIPT WEB-APP URL BETWEEN THE QUOTES ◄◄◄
+   This is the only line you need to edit. Until it's filled in, the
+   calculator still works for everyone — responses just aren't recorded.
+   Setup steps are at the very bottom of this file (in an HTML comment).
+   ===================================================================== */
+const RESEARCH_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzACx3khUAoojaY-VPgKVqMS-Z__nyx_L8aXTznSJhIEev_pP98vND70ORDqXZPvNDX/exec';
+/* ===================================================================== */
+
+/* =========================================================
+   CONFIG — all hardcoded constants
+   ========================================================= */
+// SuperCheck model v1.2 — finalised 2026-06-18 — data vintage: Chant West 2004–2024, Services Australia March 2026
+// v1.1 changes vs v1.0: voluntary contributions indexed to wage growth; Monte Carlo seeded (mulberry32) for reproducibility.
+// v1.2 changes vs v1.1: percentile benchmark anchored to ATO median super balances by age (June 2022).
+const CONFIG = {
+  SG_RATE: 0.12,  // legislated rate from July 2025
+  // Concessional contributions (employer SG) are taxed at 15% on entry to the fund.
+  CONTRIB_TAX: 0.15,
+  WAGE_GROWTH: 0.035,  // salary grows 3.5% p.a., so contributions rise over time
+  INFLATION: 0.025,    // all projected balances are deflated to today's dollars
+  // ASFA Retirement Standard, December 2025 quarter (latest release).
+  ASFA_COMFORTABLE_SINGLE: 630000,
+  ASFA_COMFORTABLE_COUPLE: 730000,
+  ASFA_MODEST_SINGLE: 250000,
+  ASFA_MODEST_COUPLE: 320000,
+  // Annual ASFA comfortable spending budgets (today's dollars), Dec 2025 quarter.
+  ASFA_SPEND_SINGLE: 54240,
+  ASFA_SPEND_COUPLE: 76505,
+  DRAWDOWN_END_AGE: 95,
+  // Age Pension parameters, Services Australia rates from 20 March 2026.
+  // Pension rates and thresholds are indexed, so constant today's-dollar
+  // values are the right treatment in a real-dollar model.
+  PENSION_MAX_SINGLE: 31223,             // $1,200.90/fortnight incl. supplements
+  PENSION_MAX_COUPLE: 47070,             // $1,810.40/fortnight combined
+  ASSET_TEST_THRESHOLD_SINGLE: 321500,   // homeowner, full-pension limit
+  ASSET_TEST_THRESHOLD_COUPLE: 481500,   // homeowner, combined
+  NON_HOMEOWNER_OFFSET: 258000,          // added to thresholds for non-homeowners
+  ASSET_TAPER: 78,                       // $/year lost per $1,000 over the threshold ($3/fortnight)
+  // Median super balance by age — ATO Individuals statistics, year ended June 2022
+  // (as compiled in ASFA's 2024 account-balances paper). Persons anchor = midpoint of
+  // the published male and female medians per 5-year band (ATO publishes no combined
+  // persons median by single age band).
+  ABS_BENCHMARKS: { 35: 62000, 40: 88000, 45: 114000, 50: 137000, 55: 157000, 60: 180000, 65: 199000 },
+  FUND_PARAMS: {
+    "High Growth": { mean: 0.080, std: 0.117 },
+    "Balanced":    { mean: 0.067, std: 0.094 },
+    "Conservative":{ mean: 0.048, std: 0.052 },
+    "Cash":        { mean: 0.034, std: 0.018 }
+  },
+  DATA_SOURCE: "Chant West SR50/SR25 median returns 2004-2024, fitted via MLE normal distribution",
+  DATA_YEARS: 21,
+  // Full 2004-2024 annual return series (decimals) — the Monte Carlo bootstrap
+  // resamples these directly so the simulation keeps the empirical fat tails.
+  HISTORICAL_RETURNS: {
+    "High Growth": [0.142, 0.187, 0.164, 0.168, -0.267, -0.134, 0.098, 0.012, 0.104, 0.198, 0.131, 0.097, 0.082, 0.136, 0.102, -0.008, 0.033, 0.221, -0.048, 0.124, 0.141],
+    "Balanced":    [0.121, 0.149, 0.132, 0.135, -0.218, -0.104, 0.082, 0.009, 0.092, 0.156, 0.112, 0.086, 0.068, 0.108, 0.089, 0.006, 0.028, 0.174, -0.034, 0.097, 0.113],
+    "Conservative":[0.083, 0.094, 0.086, 0.081, -0.124, -0.051, 0.061, 0.038, 0.068, 0.094, 0.079, 0.058, 0.049, 0.062, 0.054, 0.032, 0.029, 0.098, 0.002, 0.056, 0.064],
+    "Cash":        [0.051, 0.055, 0.058, 0.063, 0.059, 0.038, 0.041, 0.047, 0.042, 0.031, 0.028, 0.023, 0.020, 0.019, 0.018, 0.017, 0.008, 0.003, 0.009, 0.038, 0.042]
+  },
+  // Aggregate fee ratios (admin + investment fees paid / MySuper assets) from
+  // the APRA MySuper Bulletin, year ended June 2023. Note: "fees paid" excludes
+  // indirect investment costs netted from unit prices, so these understate the
+  // all-in cost members experience.
+  DEFAULT_FEE_INDUSTRY: 0.4,  // APRA MySuper median, 2023
+  DEFAULT_FEE_RETAIL: 0.3,    // APRA MySuper median, 2023
+  FEE_DATA_SOURCE: "APRA MySuper Bulletin 2023",
+  FUND_DESCRIPTIONS: {
+    "High Growth": "Mostly shares and property. Higher long-term growth potential, but bigger ups and downs along the way.",
+    "Balanced": "A mix of growth assets (shares, property) and defensive assets (bonds, cash). The most common default option.",
+    "Conservative": "Mostly bonds and cash with some shares. Smoother ride, but lower long-term growth.",
+    "Cash": "Cash and term deposits only. Very stable, but unlikely to keep pace with inflation over the long term."
+  }
+};
+
+/* =========================================================
+   CALCULATION ENGINE
+   ========================================================= */
+
+// Compound balance year by year using a fixed mean return.
+function calcDeterministic(inputs) {
+  const { balance, salary, extraMonthly, fundType, feePct, age, retireAge } = inputs;
+  const years = retireAge - age;
+  const meanReturn = CONFIG.FUND_PARAMS[fundType].mean;
+  const feeRate = feePct / 100;
+
+  let bal = balance;       // nominal dollars
+  let sal = salary;        // grows with wages each year
+  const path = [bal];      // deflated to today's dollars
+
+  for (let y = 0; y < years; y++) {
+    const annualContribution = sal * CONFIG.SG_RATE * (1 - CONFIG.CONTRIB_TAX) + extraMonthly * 12 * Math.pow(1 + CONFIG.WAGE_GROWTH, y);
+    bal = bal * (1 + meanReturn - feeRate) + annualContribution;
+    sal *= 1 + CONFIG.WAGE_GROWTH;
+    path.push(bal / Math.pow(1 + CONFIG.INFLATION, y + 1));
+  }
+
+  // path already holds today's-dollar values; final entry covers years === 0 too.
+  return { finalBalance: path[path.length - 1], path };
+}
+
+// Compare current balance against ATO median benchmarks (June 2022, via ASFA 2024)
+function calcPercentile(inputs) {
+  const { balance, age } = inputs;
+  const brackets = Object.keys(CONFIG.ABS_BENCHMARKS).map(Number).sort((a, b) => a - b);
+
+  // Clamp age to the available bracket range
+  let clampedAge = age;
+  if (clampedAge < brackets[0]) clampedAge = brackets[0];
+  if (clampedAge > brackets[brackets.length - 1]) clampedAge = brackets[brackets.length - 1];
+
+  // Find the nearest bracket (round to nearest defined age)
+  let nearestBracket = brackets[0];
+  let minDiff = Math.abs(clampedAge - brackets[0]);
+  for (const b of brackets) {
+    const diff = Math.abs(clampedAge - b);
+    if (diff < minDiff) {
+      minDiff = diff;
+      nearestBracket = b;
+    }
+  }
+
+  const median = CONFIG.ABS_BENCHMARKS[nearestBracket];
+
+  // Model the distribution around the median balance as roughly log-normal-ish:
+  // use a simple ratio-based percentile estimate. A balance equal to the
+  // median benchmark = 50th percentile. Each doubling/halving moves ~25 percentile points,
+  // clamped to [1, 99].
+  const ratio = balance <= 0 ? 0 : balance / median;
+  let percentile;
+  if (ratio <= 0) {
+    percentile = 1;
+  } else {
+    const log2ratio = Math.log2(ratio);
+    percentile = 50 + log2ratio * 25;
+  }
+  percentile = Math.max(1, Math.min(99, Math.round(percentile)));
+
+  return {
+    percentile,
+    bracket: nearestBracket,
+    label: `Ahead of ${percentile}% of Australians your age`
+  };
+}
+
+// Run the deterministic projection at the user's fee rate and at 0.5%, return the dollar gap.
+function calcFeeDrag(inputs) {
+  const atUserFee = calcDeterministic(inputs).finalBalance;
+  const atLowFee = calcDeterministic({ ...inputs, feePct: 0.5 }).finalBalance;
+  return Math.max(0, atLowFee - atUserFee);
+}
+
+// Box-Muller transform: returns one standard-normal random value.
+function randNormal() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// Monte Carlo simulation of retirement balance. The annual return draw is
+// supplied by sampleReturn so the bootstrap and normal variants share
+// identical contribution/fee/tax/inflation logic.
+function runMonteCarloCore(inputs, iterations, sampleReturn) {
+  const { balance, salary, extraMonthly, feePct, age, retireAge, retireType } = inputs;
+  const years = retireAge - age;
+  const feeRate = feePct / 100;
+  const asfaThreshold = retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+  // Drawdown phase: withdraw the ASFA comfortable budget (a constant amount in
+  // today's dollars, so it grows with inflation in nominal terms) until age 95.
+  const annualSpend = retireType === 'Couple' ? CONFIG.ASFA_SPEND_COUPLE : CONFIG.ASFA_SPEND_SINGLE;
+  const drawYears = Math.max(0, CONFIG.DRAWDOWN_END_AGE - retireAge);
+  const totalYears = years + drawYears;
+
+  // Age Pension means test (asset test only — for retirees drawing down super
+  // the asset test usually binds before the income test).
+  const pensionMax = retireType === 'Couple' ? CONFIG.PENSION_MAX_COUPLE : CONFIG.PENSION_MAX_SINGLE;
+  let assetThreshold = retireType === 'Couple' ? CONFIG.ASSET_TEST_THRESHOLD_COUPLE : CONFIG.ASSET_TEST_THRESHOLD_SINGLE;
+  if (inputs.homeowner === false) assetThreshold += CONFIG.NON_HOMEOWNER_OFFSET;
+  // Entitlement is assessed on the today's-dollar balance each year, since
+  // pension rates and thresholds are indexed.
+  function pensionFor(realBalance) {
+    const over = Math.max(0, realBalance - assetThreshold);
+    return Math.max(0, Math.min(pensionMax, pensionMax - (over / 1000) * CONFIG.ASSET_TAPER));
+  }
+
+  // Precompute per-year deflators so every recorded value is in today's dollars.
+  const deflators = new Array(totalYears + 1);
+  for (let y = 0; y <= totalYears; y++) deflators[y] = Math.pow(1 + CONFIG.INFLATION, y);
+
+  const finals = new Array(iterations);
+  // Age at which each path's balance hits zero; END_AGE + 1 marks "survived to 95+".
+  const survivedSentinel = CONFIG.DRAWDOWN_END_AGE + 1;
+  const depletionAges = new Array(iterations);
+  const depletionAgesUnassisted = new Array(iterations);
+
+  // Sample every 10th run's full path for percentile-path charting.
+  const sampleStep = 10;
+  const sampledPaths = [];
+
+  for (let i = 0; i < iterations; i++) {
+    let bal = balance;
+    let sal = salary;
+    const recordPath = (i % sampleStep === 0);
+    const path = recordPath ? [bal] : null;
+
+    for (let y = 0; y < years; y++) {
+      const annualContribution = sal * CONFIG.SG_RATE * (1 - CONFIG.CONTRIB_TAX) + extraMonthly * 12 * Math.pow(1 + CONFIG.WAGE_GROWTH, y);
+      const r = sampleReturn();
+      bal = bal * (1 + r - feeRate) + annualContribution;
+      sal *= 1 + CONFIG.WAGE_GROWTH;
+      if (bal < 0) bal = 0;
+      if (recordPath) path.push(bal / deflators[y + 1]);
+    }
+
+    finals[i] = bal / deflators[years];
+
+    // Drawdown: no contributions; returns and fees still apply; withdraw the
+    // inflation-indexed ASFA budget at the end of each year, less whatever the
+    // Age Pension covers. As the balance falls, the pension rises, so the net
+    // draw on super shrinks — both balances share the same return draws so the
+    // assisted/unassisted comparison isolates the pension effect.
+    let depletionAge = survivedSentinel;
+    let depletionAgeUnassisted = survivedSentinel;
+    let balU = bal; // pension-free shadow balance
+    for (let d = 0; d < drawYears; d++) {
+      const r = sampleReturn();
+      const growth = 1 + r - feeRate;
+      const deflator = deflators[years + d + 1];
+
+      if (depletionAge === survivedSentinel) {
+        const pension = pensionFor(bal / deflators[years + d]);
+        const netSpend = Math.max(0, annualSpend - pension);
+        bal = bal * growth - netSpend * deflator;
+        if (bal <= 0) depletionAge = retireAge + d + 1;
+      }
+
+      if (depletionAgeUnassisted === survivedSentinel) {
+        balU = balU * growth - annualSpend * deflator;
+        if (balU <= 0) depletionAgeUnassisted = retireAge + d + 1;
+      }
+
+      if (depletionAge !== survivedSentinel && depletionAgeUnassisted !== survivedSentinel) break;
+    }
+    depletionAges[i] = depletionAge;
+    depletionAgesUnassisted[i] = depletionAgeUnassisted;
+
+    if (recordPath) sampledPaths.push(path);
+  }
+
+  // Sort finals for percentile extraction.
+  const sortedFinals = [...finals].sort((a, b) => a - b);
+  const pct = (p) => {
+    const idx = Math.min(sortedFinals.length - 1, Math.floor((p / 100) * sortedFinals.length));
+    return sortedFinals[idx];
+  };
+
+  const finalPercentiles = {
+    p10: pct(10),
+    p25: pct(25),
+    p50: pct(50),
+    p75: pct(75),
+    p90: pct(90)
+  };
+
+  // Year-by-year percentile paths from the sampled subset.
+  const yearCount = years + 1;
+  const yearPercentiles = { p10: [], p25: [], p50: [], p75: [], p90: [] };
+
+  for (let y = 0; y < yearCount; y++) {
+    const valuesAtYear = sampledPaths.map(p => p[y]).sort((a, b) => a - b);
+    const pctAtYear = (p) => {
+      const idx = Math.min(valuesAtYear.length - 1, Math.floor((p / 100) * valuesAtYear.length));
+      return valuesAtYear[idx];
+    };
+    yearPercentiles.p10.push(pctAtYear(10));
+    yearPercentiles.p25.push(pctAtYear(25));
+    yearPercentiles.p50.push(pctAtYear(50));
+    yearPercentiles.p75.push(pctAtYear(75));
+    yearPercentiles.p90.push(pctAtYear(90));
+  }
+
+  // Probability of clearing ASFA comfortable threshold.
+  const clearedCount = finals.filter(f => f >= asfaThreshold).length;
+  const probability = (clearedCount / iterations) * 100;
+
+  // Survival: percentage of paths where the balance is still positive at 90.
+  const survivalTo90 = depletionAges.filter(a => a > 90).length / iterations * 100;
+  const survivalTo90Unassisted = depletionAgesUnassisted.filter(a => a > 90).length / iterations * 100;
+
+  return {
+    finalPercentiles,
+    yearPercentiles,
+    probability,
+    asfaThreshold,
+    depletionAges,
+    survivalTo90,
+    survivalTo90Unassisted,
+    retireAge,
+    annualSpend
+  };
+}
+
+// Seedable PRNG (mulberry32). Reseeded per call so identical inputs always
+// produce identical results — reproducible for users and for QA.
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Bootstrap Monte Carlo (default): each simulated year resamples one of the
+// 21 actual historical annual returns (with replacement), preserving the
+// empirical fat tails the normal distribution cannot capture. A fixed seed
+// makes the same inputs reproduce exactly (base and scenario runs included).
+function runMonteCarlo(inputs, iterations = 5000) {
+  const hist = CONFIG.HISTORICAL_RETURNS[inputs.fundType];
+  const rand = mulberry32(42);
+  return runMonteCarloCore(inputs, iterations,
+    () => hist[Math.floor(rand() * hist.length)]);
+}
+
+// Normal-draw Monte Carlo (Box-Muller), retained for calibration comparison.
+function runMonteCarloNormal(inputs, iterations = 5000) {
+  const { mean, std } = CONFIG.FUND_PARAMS[inputs.fundType];
+  return runMonteCarloCore(inputs, iterations,
+    () => mean + std * randNormal());
+}
+
+/* =========================================================
+   FORMATTING HELPERS
+   ========================================================= */
+
+function formatCurrency(value) {
+  return '$' + Math.round(value).toLocaleString('en-AU');
+}
+
+function formatCurrencyShort(value) {
+  if (Math.abs(value) >= 999500) {
+    return '$' + (value / 1000000).toFixed(1) + 'M';
+  }
+  if (Math.abs(value) >= 1000) {
+    return '$' + Math.round(value / 1000) + 'k';
+  }
+  return '$' + Math.round(value);
+}
+
+function parseCurrencyInput(str) {
+  if (str === null || str === undefined) return NaN;
+  const cleaned = str.toString().replace(/[$,\s]/g, '');
+  if (cleaned === '') return NaN;
+  return Number(cleaned);
+}
+
+/* =========================================================
+   STATE
+   ========================================================= */
+
+let baseInputs = null;
+let mcResult = null;
+let baseResult = null; // { deterministic, percentile, feeDrag, probability }
+let fanChart = null;
+
+/* =========================================================
+   FUND TYPE DESCRIPTION
+   ========================================================= */
+
+function updateFundDesc() {
+  const fundType = document.getElementById('fundType').value;
+  document.getElementById('fundDesc').textContent = CONFIG.FUND_DESCRIPTIONS[fundType];
+}
+document.getElementById('fundType').addEventListener('change', updateFundDesc);
+updateFundDesc();
+
+// Default the fee field to the APRA industry-fund figure so CONFIG stays the
+// single source of truth for fee defaults.
+document.getElementById('fee').value = CONFIG.DEFAULT_FEE_INDUSTRY;
+
+/* =========================================================
+   RETIREMENT TYPE TOGGLE
+   ========================================================= */
+
+const toggleSingle = document.getElementById('toggle-single');
+const toggleCouple = document.getElementById('toggle-couple');
+
+function setRetireType(type) {
+  if (type === 'Single') {
+    toggleSingle.classList.add('active');
+    toggleCouple.classList.remove('active');
+    toggleSingle.querySelector('input').checked = true;
+  } else {
+    toggleCouple.classList.add('active');
+    toggleSingle.classList.remove('active');
+    toggleCouple.querySelector('input').checked = true;
+  }
+}
+
+toggleSingle.addEventListener('click', () => setRetireType('Single'));
+toggleCouple.addEventListener('click', () => setRetireType('Couple'));
+
+const toggleHomeYes = document.getElementById('toggle-home-yes');
+const toggleHomeNo = document.getElementById('toggle-home-no');
+
+function setHomeowner(yes) {
+  toggleHomeYes.classList.toggle('active', yes);
+  toggleHomeNo.classList.toggle('active', !yes);
+  (yes ? toggleHomeYes : toggleHomeNo).querySelector('input').checked = true;
+}
+
+toggleHomeYes.addEventListener('click', () => setHomeowner(true));
+toggleHomeNo.addEventListener('click', () => setHomeowner(false));
+
+/* =========================================================
+   VALIDATION
+   ========================================================= */
+
+function setError(fieldId, hasError) {
+  const field = document.getElementById(fieldId);
+  field.classList.toggle('has-error', hasError);
+  const input = field.querySelector('input, select');
+  if (input) input.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+}
+
+function validateInputs() {
+  let valid = true;
+  const errors = {};
+
+  const balance = parseCurrencyInput(document.getElementById('balance').value);
+  if (isNaN(balance) || balance < 0 || balance > 50000000) {
+    errors.balance = true;
+    valid = false;
+  }
+
+  const age = Number(document.getElementById('age').value);
+  if (!Number.isFinite(age) || document.getElementById('age').value === '' || age < 18 || age > 75 || !Number.isInteger(age)) {
+    errors.age = true;
+    valid = false;
+  }
+
+  const salary = parseCurrencyInput(document.getElementById('salary').value);
+  if (isNaN(salary) || salary < 0 || salary > 2000000) {
+    errors.salary = true;
+    valid = false;
+  }
+
+  const extraVal = document.getElementById('extra').value;
+  const extra = parseCurrencyInput(extraVal === '' ? '0' : extraVal);
+  if (isNaN(extra) || extra < 0) {
+    errors.extra = true;
+    valid = false;
+  }
+
+  const fee = Number(document.getElementById('fee').value);
+  if (!Number.isFinite(fee) || document.getElementById('fee').value === '' || fee < 0 || fee > 5) {
+    errors.fee = true;
+    valid = false;
+  }
+
+  const retireAge = Number(document.getElementById('retireAge').value);
+  if (!Number.isFinite(retireAge) || document.getElementById('retireAge').value === '' ||
+      retireAge < 55 || retireAge > 80 || !Number.isInteger(retireAge) ||
+      (Number.isFinite(age) && retireAge <= age)) {
+    errors.retireAge = true;
+    valid = false;
+  }
+
+  setError('field-balance', !!errors.balance);
+  setError('field-age', !!errors.age);
+  setError('field-salary', !!errors.salary);
+  setError('field-extra', !!errors.extra);
+  setError('field-fee', !!errors.fee);
+  setError('field-retireAge', !!errors.retireAge);
+
+  if (!valid) return null;
+
+  const fundType = document.getElementById('fundType').value;
+  const retireType = document.querySelector('input[name="retireType"]:checked').value;
+  const homeowner = document.querySelector('input[name="homeowner"]:checked').value === 'Yes';
+
+  return {
+    balance, age, salary, extraMonthly: extra, fundType, feePct: fee, retireAge, retireType, homeowner
+  };
+}
+
+/* =========================================================
+   MAIN CALCULATE
+   ========================================================= */
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const inputs = validateInputs();
+  if (!inputs) {
+    // Scroll to first error
+    const firstError = document.querySelector('.field.has-error');
+    if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  baseInputs = inputs;
+
+  const deterministic = calcDeterministic(inputs);
+  const percentile = calcPercentile(inputs);
+  const feeDrag = calcFeeDrag(inputs);
+  mcResult = runMonteCarlo(inputs, 5000);
+
+  baseResult = {
+    deterministic,
+    percentile,
+    feeDrag,
+    probability: mcResult.probability
+  };
+
+  document.getElementById('results-intro').style.display = 'none';
+  document.getElementById('cardsGrid').classList.remove('results-hidden');
+  document.getElementById('chartSection').classList.remove('results-hidden');
+  document.getElementById('scenario-intro').style.display = 'none';
+  document.getElementById('slidersGrid').classList.remove('results-hidden');
+
+  renderCards(inputs, deterministic, percentile, feeDrag, mcResult);
+
+  // Charts come from a CDN library; if it failed to load (offline, blocked
+  // Wi-Fi, ad-blocker), degrade gracefully — the figures above are still exact.
+  if (typeof Chart !== 'undefined') {
+    renderChart(inputs, mcResult);
+    renderDepletionChart(mcResult);
+  } else {
+    document.getElementById('chartSection').innerHTML =
+      '<p style="color: var(--muted);">Charts couldn’t load (no connection to our chart library), but the figures above are still accurate.</p>';
+  }
+
+  initSliders(inputs);   // independent of charts
+
+  // Reveal the opt-in research-contribution card, reset to un-submitted state.
+  document.getElementById('contributeCard').classList.remove('results-hidden');
+  document.getElementById('contributeConsent').checked = false;
+  document.getElementById('contributeSubmit').disabled = true;
+  document.getElementById('contributeStatus').textContent = '';
+  document.getElementById('contributeStatus').className = 'contribute-status';
+
+  playCalcNarrative();
+});
+
+/* =========================================================
+   RESEARCH SUBMISSION (public, opt-in → Google Sheet)
+   ========================================================= */
+
+// Build a flat record from the base calculation (what the user entered and the
+// base results — not the scenario-explorer what-ifs). Keys match the research
+// CSV columns for a consistent dataset.
+function buildResearchRecord() {
+  const inp = baseInputs;
+  const det = baseResult.deterministic.finalBalance;
+  const p = baseResult.percentile;
+  const fp = mcResult.finalPercentiles;
+  const asfa = mcResult.asfaThreshold;
+  const now = new Date();
+  return {
+    submitted_at: now.toISOString(),
+    submission_id: now.getTime().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    age: inp.age,
+    balance: inp.balance,
+    salary: inp.salary,
+    extra_monthly: inp.extraMonthly,
+    fund_type: inp.fundType,
+    fee_pct: inp.feePct,
+    retire_age: inp.retireAge,
+    retire_type: inp.retireType,
+    homeowner: inp.homeowner ? 'Yes' : 'No',
+    deterministic_balance: Math.round(det),
+    percentile: p.percentile,
+    percentile_bracket: p.bracket,
+    fee_drag: Math.round(baseResult.feeDrag),
+    mc_p10: Math.round(fp.p10),
+    mc_p25: Math.round(fp.p25),
+    mc_p50_stochastic_median: Math.round(fp.p50),
+    mc_p75: Math.round(fp.p75),
+    mc_p90: Math.round(fp.p90),
+    survival_to_90_assisted_pct: Math.round(mcResult.survivalTo90 * 10) / 10,
+    survival_to_90_unassisted_pct: Math.round(mcResult.survivalTo90Unassisted * 10) / 10,
+    pension_gap_pp: Math.round((mcResult.survivalTo90 - mcResult.survivalTo90Unassisted) * 10) / 10,
+    det_vs_stochastic_gap: Math.round(det - fp.p50),
+    asfa_comfortable_threshold: asfa,
+    clears_asfa_stochastic_median: fp.p50 >= asfa,
+    clears_asfa_deterministic: det >= asfa
+  };
+}
+
+const contributeConsent = document.getElementById('contributeConsent');
+const contributeSubmit = document.getElementById('contributeSubmit');
+const contributeStatus = document.getElementById('contributeStatus');
+
+contributeConsent.addEventListener('change', () => {
+  contributeSubmit.disabled = !contributeConsent.checked;
+});
+
+contributeSubmit.addEventListener('click', () => {
+  if (!contributeConsent.checked || !baseInputs) return;
+  if (!RESEARCH_ENDPOINT) {
+    contributeStatus.textContent = 'Submission isn’t set up yet (no endpoint configured).';
+    contributeStatus.className = 'contribute-status err';
+    return;
+  }
+  contributeSubmit.disabled = true;
+  contributeStatus.textContent = 'Sending…';
+  contributeStatus.className = 'contribute-status';
+  // Apps Script web apps accept a "simple" POST (text/plain avoids a CORS
+  // preflight); no-cors means we can't read the reply, so we confirm
+  // optimistically and the data lands as a row in the Sheet.
+  fetch(RESEARCH_ENDPOINT, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(buildResearchRecord())
+  }).then(() => {
+    contributeStatus.textContent = 'Thanks — your response was recorded.';
+    contributeStatus.className = 'contribute-status ok';
+    contributeConsent.disabled = true;
+  }).catch(() => {
+    contributeStatus.textContent = 'Couldn’t send — please check your connection and try again.';
+    contributeStatus.className = 'contribute-status err';
+    contributeSubmit.disabled = false;
+  });
+});
+
+// Sequenced status strip shown after Calculate. The computation above has
+// already finished — this narrates what it genuinely did, then scrolls.
+let narrativeTimers = [];
+function playCalcNarrative() {
+  narrativeTimers.forEach(clearTimeout);
+  narrativeTimers = [];
+  const lines = document.querySelectorAll('#calcNarrative .line');
+  lines.forEach(l => l.classList.remove('visible'));
+  lines.forEach((line, i) => {
+    narrativeTimers.push(setTimeout(() => line.classList.add('visible'), i * 400));
+  });
+  narrativeTimers.push(setTimeout(() => {
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    // Move keyboard focus to the results heading, not just the viewport.
+    const h2 = document.querySelector('#results-section h2');
+    if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus({ preventScroll: true }); }
+  }, lines.length * 400 + 200));
+}
+
+// Hero button: smooth-scroll to the form.
+document.getElementById('heroBtn').addEventListener('click', () => {
+  document.getElementById('input-section').scrollIntoView({ behavior: 'smooth' });
+});
+
+// "What is this?" explainer toggles on cards and charts.
+document.querySelectorAll('.what-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const open = btn.nextElementSibling.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+});
+
+// Text-size toggle: bumps the base font from 18px to 21px.
+const textNormalBtn = document.getElementById('textNormal');
+const textLargeBtn = document.getElementById('textLarge');
+function setTextSize(large) {
+  document.body.classList.toggle('large-text', large);
+  textLargeBtn.setAttribute('aria-pressed', large ? 'true' : 'false');
+  textNormalBtn.setAttribute('aria-pressed', large ? 'false' : 'true');
+  // Charts read CSS px sizes at creation; redraw so they pick up the new scale.
+  if (fanChart) fanChart.resize();
+  if (depletionChart) depletionChart.resize();
+}
+textNormalBtn.addEventListener('click', () => setTextSize(false));
+textLargeBtn.addEventListener('click', () => setTextSize(true));
+
+// Keep the retirement-type and homeowner toggle cards' visual state in sync
+// when changed via keyboard (arrow keys fire 'change', not 'click').
+document.querySelectorAll('input[name="retireType"]').forEach(r => {
+  r.addEventListener('change', () => { if (r.checked) setRetireType(r.value); });
+});
+document.querySelectorAll('input[name="homeowner"]').forEach(r => {
+  r.addEventListener('change', () => { if (r.checked) setHomeowner(r.value === 'Yes'); });
+});
+
+// Keep charts sized to the viewport after resize / orientation change.
+window.addEventListener('resize', () => {
+  if (typeof fanChart !== 'undefined' && fanChart) fanChart.resize();
+  if (typeof depletionChart !== 'undefined' && depletionChart) depletionChart.resize();
+});
+
+/* =========================================================
+   RENDER CARDS
+   ========================================================= */
+
+function renderCards(inputs, deterministic, percentile, feeDrag, mc) {
+  document.getElementById('cardBalance').textContent = formatCurrency(deterministic.finalBalance);
+
+  const asfaComfortable = inputs.retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+  const asfaModest = inputs.retireType === 'Couple' ? CONFIG.ASFA_MODEST_COUPLE : CONFIG.ASFA_MODEST_SINGLE;
+
+  let badgeHtml = '';
+  if (deterministic.finalBalance >= asfaComfortable) {
+    badgeHtml = '<span class="badge green">Comfortable retirement</span>';
+  } else if (deterministic.finalBalance >= asfaModest) {
+    badgeHtml = '<span class="badge amber">Modest retirement</span>';
+  } else {
+    badgeHtml = '<span class="badge red">Below ASFA modest</span>';
+  }
+  document.getElementById('cardBalanceBadge').innerHTML = badgeHtml;
+
+  document.getElementById('cardPercentile').textContent = `Ahead of ${percentile.percentile}%`;
+  document.getElementById('cardPercentileSub').textContent = `of Australians around age ${percentile.bracket} (ATO benchmark, June 2022)`;
+
+  document.getElementById('cardFeeDrag').textContent = formatCurrency(feeDrag);
+  document.getElementById('cardFeeDragSub').textContent = inputs.feePct <= 0.5
+    ? 'your fee is already at or below the low-cost benchmark (0.5% p.a.) — nothing lost'
+    : 'lost to fees vs a low-cost fund (0.5% p.a.) over your investment horizon';
+
+  const survival = Math.round(mc.survivalTo90);
+  const survivalUnassisted = Math.round(mc.survivalTo90Unassisted);
+  const gap = survival - survivalUnassisted;
+  document.getElementById('cardSurvival').textContent = survival + '%';
+  document.getElementById('cardSurvivalSecondary').textContent =
+    'Without the pension: ' + survivalUnassisted + '%.';
+  document.getElementById('cardPensionGap').textContent = (gap >= 0 ? '+' : '−') + Math.abs(gap) + 'pp';
+
+  updateCardAria(deterministic.finalBalance, percentile, feeDrag, survival, survivalUnassisted, gap);
+}
+
+// Describe each card's current value for screen readers.
+function updateCardAria(balance, percentile, feeDrag, survival, survivalUnassisted, gap) {
+  document.getElementById('cardBalanceWrap').setAttribute('aria-label',
+    'Projected balance ' + formatCurrency(balance) + ' in today’s dollars');
+  document.getElementById('cardPercentileWrap').setAttribute('aria-label',
+    'Your percentile: ahead of ' + percentile.percentile + ' per cent of Australians around age ' + percentile.bracket);
+  document.getElementById('cardFeeDragWrap').setAttribute('aria-label',
+    'Fee drag ' + formatCurrency(feeDrag) + ' lost to fees versus a low-cost fund');
+  document.getElementById('cardSurvivalWrap').setAttribute('aria-label',
+    'Money lasts to 90, including the Age Pension: ' + survival + ' per cent of simulations; ' + survivalUnassisted + ' per cent without the pension');
+  document.getElementById('cardGapWrap').setAttribute('aria-label',
+    'What the Age Pension is worth to you: ' + (gap >= 0 ? 'plus ' : 'minus ') + Math.abs(gap) + ' percentage points of survival to 90');
+}
+
+/* =========================================================
+   CHART PLUGIN — ASFA threshold label
+   ========================================================= */
+
+const asfaLabelPlugin = {
+  id: 'asfaLabelPlugin',
+  afterDraw(chart) {
+    const threshold = chart.asfaThresholdValue;
+    if (threshold === undefined) return;
+    const { ctx, chartArea, scales } = chart;
+    const y = scales.y.getPixelForValue(threshold);
+    if (y < chartArea.top - 10 || y > chartArea.bottom + 10) return;
+    const small = chart.width < 600;
+    ctx.save();
+    ctx.font = (small ? '700 9px ' : '700 12px ') + '"DM Sans", sans-serif';
+    ctx.fillStyle = '#B0560F';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ASFA comfortable', chartArea.right + (small ? 4 : 8), y);
+    ctx.restore();
+  }
+};
+Chart.register(asfaLabelPlugin);
+
+/* =========================================================
+   RENDER FAN CHART
+   ========================================================= */
+
+function renderChart(inputs, mc) {
+  if (typeof Chart === 'undefined' || !document.getElementById('fanChart')) return;
+  const ctx = document.getElementById('fanChart').getContext('2d');
+  const currentYear = new Date().getFullYear();
+  const years = inputs.retireAge - inputs.age;
+  const labels = [];
+  for (let y = 0; y <= years; y++) labels.push(currentYear + y);
+
+  const asfaComfortable = inputs.retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+
+  if (fanChart) fanChart.destroy();
+
+  fanChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '90th percentile',
+          data: mc.yearPercentiles.p90,
+          borderColor: '#0D7377',
+          borderWidth: 1.5,
+          borderDash: [2, 3], // dotted = outer band
+          pointRadius: 0,
+          fill: false,
+          tension: 0.2
+        },
+        {
+          label: '75th percentile',
+          data: mc.yearPercentiles.p75,
+          borderColor: '#0D7377',
+          borderWidth: 2,
+          borderDash: [], // solid = inner band edge
+          pointRadius: 0,
+          fill: '+2', // fill to the 25th percentile dataset (index of this + 2 = p25)
+          backgroundColor: 'rgba(13, 115, 119, 0.15)',
+          tension: 0.2
+        },
+        {
+          label: '50th percentile (median)',
+          data: mc.yearPercentiles.p50,
+          borderColor: '#1B2A4A',
+          borderWidth: 3,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.2
+        },
+        {
+          label: '25th percentile',
+          data: mc.yearPercentiles.p25,
+          borderColor: '#0D7377',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.2
+        },
+        {
+          label: '10th percentile',
+          data: mc.yearPercentiles.p10,
+          borderColor: '#0D7377',
+          borderWidth: 1.5,
+          borderDash: [2, 3], // dotted = outer band (mirrors p90)
+          pointRadius: 0,
+          fill: false,
+          tension: 0.2
+        },
+        {
+          label: 'ASFA comfortable threshold',
+          data: labels.map(() => asfaComfortable),
+          borderColor: '#B0560F',
+          borderWidth: 2.5,
+          borderDash: [9, 5], // long dash = threshold marker
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      layout: {
+        padding: { right: window.innerWidth < 600 ? 70 : 110 }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#1B2A4A',
+            font: { family: 'DM Sans', size: 13 },
+            usePointStyle: true,
+            boxWidth: 12
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#5C6B82', font: { family: 'DM Sans' } }
+        },
+        y: {
+          grid: { color: '#E2E8F0', drawTicks: false },
+          border: { display: false },
+          ticks: {
+            color: '#5C6B82',
+            font: { family: 'DM Sans' },
+            callback: function(value) { return formatCurrencyShort(value); }
+          }
+        }
+      }
+    }
+  });
+
+  fanChart.asfaThresholdValue = asfaComfortable;
+}
+
+/* =========================================================
+   DEPLETION CHART — when the money runs out
+   ========================================================= */
+
+let depletionChart = null;
+
+// Draws a dashed vertical marker at age 90 on the depletion histogram.
+const age90MarkerPlugin = {
+  id: 'age90MarkerPlugin',
+  afterDraw(chart) {
+    const idx = chart.age90Index;
+    if (idx === undefined || idx < 0) return;
+    const { ctx, chartArea, scales } = chart;
+    const x = scales.x.getPixelForValue(idx);
+    if (x < chartArea.left || x > chartArea.right) return;
+    ctx.save();
+    ctx.strokeStyle = '#E07B39';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '600 12px "DM Sans", sans-serif';
+    ctx.fillStyle = '#E07B39';
+    ctx.textAlign = 'center';
+    ctx.fillText('age 90', x, chartArea.top - 6);
+    ctx.restore();
+  }
+};
+Chart.register(age90MarkerPlugin);
+
+// Bucket depletion ages into labels/counts: one bar per age from the year
+// after retirement to 95, plus a final "95+" bucket for surviving paths.
+function buildDepletionHistogram(mc) {
+  const startAge = mc.retireAge + 1;
+  const endAge = CONFIG.DRAWDOWN_END_AGE;
+  const labels = [];
+  const counts = [];
+  for (let a = startAge; a <= endAge; a++) {
+    labels.push(String(a));
+    counts.push(0);
+  }
+  labels.push('95+');
+  counts.push(0);
+
+  for (const a of mc.depletionAges) {
+    if (a > endAge) {
+      counts[counts.length - 1]++;
+    } else {
+      counts[a - startAge]++;
+    }
+  }
+  return { labels, counts };
+}
+
+function renderDepletionChart(mc) {
+  if (typeof Chart === 'undefined' || !document.getElementById('depletionChart')) return;
+  const { labels, counts } = buildDepletionHistogram(mc);
+  const total = mc.depletionAges.length;
+  const barColors = labels.map(l => l === '95+' ? 'rgba(46, 125, 50, 0.75)' : 'rgba(13, 115, 119, 0.65)');
+
+  // Update in place if the chart already exists (cheaper than destroy/recreate,
+  // matching how the fan chart is handled).
+  if (depletionChart) {
+    depletionChart.data.labels = labels;
+    depletionChart.data.datasets[0].data = counts;
+    depletionChart.data.datasets[0].backgroundColor = barColors;
+    depletionChart.depletionTotal = total;
+    depletionChart.age90Index = labels.indexOf('90');
+    depletionChart.update('none');
+    return;
+  }
+
+  const ctx = document.getElementById('depletionChart').getContext('2d');
+  depletionChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Simulations depleted at this age',
+        data: counts,
+        backgroundColor: barColors,
+        borderWidth: 0,
+        barPercentage: 0.9,
+        categoryPercentage: 0.95
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 22 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const pctOfRuns = (context.parsed.y / total * 100).toFixed(1);
+              return context.label === '95+'
+                ? `Money still there at 95: ${context.parsed.y.toLocaleString('en-AU')} runs (${pctOfRuns}%)`
+                : `Ran out at age ${context.label}: ${context.parsed.y.toLocaleString('en-AU')} runs (${pctOfRuns}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#5C6B82',
+            font: { family: 'DM Sans', size: 11 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: window.innerWidth < 600 ? 8 : 15
+          }
+        },
+        y: {
+          grid: { color: '#E2E8F0', drawTicks: false },
+          border: { display: false },
+          ticks: { color: '#5C6B82', font: { family: 'DM Sans', size: 11 } }
+        }
+      }
+    }
+  });
+
+  depletionChart.age90Index = labels.indexOf('90');
+}
+
+/* =========================================================
+   SCENARIO EXPLORER (sliders)
+   ========================================================= */
+
+function initSliders(inputs) {
+  const extraSlider = document.getElementById('slider-extra');
+  const feeSlider = document.getElementById('slider-fee');
+  const retireAgeSlider = document.getElementById('slider-retireAge');
+
+  // Extend slider bounds to cover the user's actual inputs, so the browser
+  // never clamps the .value and silently recomputes results on different
+  // numbers than the user entered.
+  extraSlider.max = Math.max(1000, inputs.extraMonthly);
+  extraSlider.value = inputs.extraMonthly;
+  feeSlider.min = Math.min(0.5, inputs.feePct);
+  feeSlider.max = Math.max(2.5, inputs.feePct);
+  feeSlider.value = inputs.feePct;
+  retireAgeSlider.min = Math.max(55, inputs.age + 1);
+  retireAgeSlider.max = 80;
+  retireAgeSlider.value = inputs.retireAge;
+
+  updateSliderDisplay();
+
+  [extraSlider, feeSlider, retireAgeSlider].forEach(slider => {
+    slider.removeEventListener('input', onSliderChange);
+    slider.addEventListener('input', onSliderChange);
+  });
+}
+
+// Cheap label updates fire on every 'input' (continuous while dragging);
+// the expensive 5,000-iteration recompute is debounced so dragging stays
+// smooth on lower-powered phones.
+function updateSliderLabels() {
+  document.getElementById('slider-extra-value').textContent = formatCurrency(Number(document.getElementById('slider-extra').value));
+  document.getElementById('slider-fee-value').textContent = Number(document.getElementById('slider-fee').value).toFixed(1) + '%';
+  document.getElementById('slider-retireAge-value').textContent = document.getElementById('slider-retireAge').value;
+}
+
+let sliderDebounceTimer = null;
+function onSliderChange() {
+  updateSliderLabels();
+  clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = setTimeout(updateSliderDisplay, 150);
+}
+
+function updateSliderDisplay() {
+  if (!baseInputs || !baseResult) return;
+
+  const extraSlider = document.getElementById('slider-extra');
+  const feeSlider = document.getElementById('slider-fee');
+  const retireAgeSlider = document.getElementById('slider-retireAge');
+
+  const extraVal = Number(extraSlider.value);
+  const feeVal = Number(feeSlider.value);
+  const retireAgeVal = Number(retireAgeSlider.value);
+
+  document.getElementById('slider-extra-value').textContent = formatCurrency(extraVal);
+  document.getElementById('slider-fee-value').textContent = feeVal.toFixed(1) + '%';
+  document.getElementById('slider-retireAge-value').textContent = retireAgeVal;
+
+  // Build a scenario input set with the modified value(s).
+  const scenarioInputs = {
+    ...baseInputs,
+    extraMonthly: extraVal,
+    feePct: feeVal,
+    retireAge: retireAgeVal
+  };
+
+  // Recompute deterministic projection for the scenario.
+  const scenarioDeterministic = calcDeterministic(scenarioInputs);
+  const baseFinal = baseResult.deterministic.finalBalance;
+  const scenarioFinal = scenarioDeterministic.finalBalance;
+
+  // Recompute fee drag and percentile for the scenario.
+  const scenarioFeeDrag = calcFeeDrag(scenarioInputs);
+  const scenarioPercentile = calcPercentile(scenarioInputs);
+
+  // Re-run the full bootstrap simulation for the scenario (~20ms for 5,000
+  // iterations), giving exact percentiles, survival and depletion outputs.
+  const scenarioMc = runMonteCarlo(scenarioInputs);
+
+  // Update per-slider delta badges. Each badge shows the effect of changing
+  // ONLY that slider from the base value, holding the others at base.
+  updateDeltaBadge('slider-extra-delta', calcDeterministic({ ...baseInputs, extraMonthly: extraVal }).finalBalance - baseFinal);
+  updateDeltaBadge('slider-fee-delta', calcDeterministic({ ...baseInputs, feePct: feeVal }).finalBalance - baseFinal);
+  updateDeltaBadge('slider-retireAge-delta', calcDeterministic({ ...baseInputs, retireAge: retireAgeVal }).finalBalance - baseFinal);
+
+  // Update the four metric cards live with the combined scenario.
+  document.getElementById('cardBalance').textContent = formatCurrency(scenarioFinal);
+
+  const asfaComfortable = scenarioInputs.retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+  const asfaModest = scenarioInputs.retireType === 'Couple' ? CONFIG.ASFA_MODEST_COUPLE : CONFIG.ASFA_MODEST_SINGLE;
+  let badgeHtml = '';
+  if (scenarioFinal >= asfaComfortable) {
+    badgeHtml = '<span class="badge green">Comfortable retirement</span>';
+  } else if (scenarioFinal >= asfaModest) {
+    badgeHtml = '<span class="badge amber">Modest retirement</span>';
+  } else {
+    badgeHtml = '<span class="badge red">Below ASFA modest</span>';
+  }
+  document.getElementById('cardBalanceBadge').innerHTML = badgeHtml;
+
+  document.getElementById('cardPercentile').textContent = `Ahead of ${scenarioPercentile.percentile}%`;
+  document.getElementById('cardPercentileSub').textContent = `of Australians around age ${scenarioPercentile.bracket} (ATO benchmark, June 2022)`;
+
+  document.getElementById('cardFeeDrag').textContent = formatCurrency(scenarioFeeDrag);
+  const sSurvival = Math.round(scenarioMc.survivalTo90);
+  const sSurvivalUnassisted = Math.round(scenarioMc.survivalTo90Unassisted);
+  const sGap = sSurvival - sSurvivalUnassisted;
+  document.getElementById('cardSurvival').textContent = sSurvival + '%';
+  document.getElementById('cardSurvivalSecondary').textContent =
+    'Without the pension: ' + sSurvivalUnassisted + '%.';
+  document.getElementById('cardPensionGap').textContent = (sGap >= 0 ? '+' : '−') + Math.abs(sGap) + 'pp';
+  updateCardAria(scenarioFinal, scenarioPercentile, scenarioFeeDrag, sSurvival, sSurvivalUnassisted, sGap);
+
+  // Redraw both charts from the fresh simulation.
+  updateChartForScenario(scenarioInputs, scenarioMc, asfaComfortable);
+  renderDepletionChart(scenarioMc);
+}
+
+function updateDeltaBadge(elementId, delta) {
+  const el = document.getElementById(elementId);
+  const sign = delta >= 0 ? '+' : '−';
+  el.textContent = sign + formatCurrency(Math.abs(delta));
+  if (delta < 0) {
+    el.classList.add('negative');
+  } else {
+    el.classList.remove('negative');
+  }
+}
+
+// Update the fan chart in place from a fresh Monte Carlo result (exact data,
+// no scaling — the Week 1 proportional-scaling shortcut has been removed).
+function updateChartForScenario(scenarioInputs, mc, asfaComfortable) {
+  if (!fanChart) return;
+
+  const currentYear = new Date().getFullYear();
+  const years = scenarioInputs.retireAge - scenarioInputs.age;
+  const labels = [];
+  for (let y = 0; y <= years; y++) labels.push(currentYear + y);
+
+  fanChart.data.labels = labels;
+  fanChart.data.datasets[0].data = mc.yearPercentiles.p90;
+  fanChart.data.datasets[1].data = mc.yearPercentiles.p75;
+  fanChart.data.datasets[2].data = mc.yearPercentiles.p50;
+  fanChart.data.datasets[3].data = mc.yearPercentiles.p25;
+  fanChart.data.datasets[4].data = mc.yearPercentiles.p10;
+  fanChart.data.datasets[5].data = labels.map(() => asfaComfortable);
+  fanChart.asfaThresholdValue = asfaComfortable;
+
+  fanChart.update('none');
+}
+</script>
+
+<!--
+========================================================================
+ SETUP: send responses to your own Google Sheet (free, ~5 minutes)
+========================================================================
+
+ You only edit ONE line in this file: RESEARCH_ENDPOINT, near the top of
+ the <script> block. Get its value by doing the following.
+
+ STEP 1 — Make the Sheet
+   1. Go to https://sheets.google.com and create a blank spreadsheet.
+      Name it e.g. "SuperCheck responses".
+
+ STEP 2 — Add the collector script
+   2. In that sheet: Extensions ▸ Apps Script.
+   3. Delete whatever code is there and paste EXACTLY this:
+
+----------------------------------------------------------------------
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Responses') || ss.insertSheet('Responses');
+    var data = JSON.parse(e.postData.contents);
+    var headers = [
+      'submitted_at','submission_id','age','balance','salary','extra_monthly',
+      'fund_type','fee_pct','retire_age','retire_type','homeowner',
+      'deterministic_balance','percentile','percentile_bracket','fee_drag',
+      'mc_p10','mc_p25','mc_p50_stochastic_median','mc_p75','mc_p90',
+      'survival_to_90_assisted_pct','survival_to_90_unassisted_pct',
+      'pension_gap_pp','det_vs_stochastic_gap','asfa_comfortable_threshold',
+      'clears_asfa_stochastic_median','clears_asfa_deterministic'
+    ];
+    if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+    sheet.appendRow(headers.map(function (h) {
+      return data[h] === undefined ? '' : data[h];
+    }));
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+----------------------------------------------------------------------
+
+ STEP 3 — Deploy it as a web app
+   4. Click Deploy ▸ New deployment.
+   5. Gear icon ▸ select type "Web app".
+   6. Set: Execute as = "Me";  Who has access = "Anyone".
+   7. Click Deploy, authorise when prompted (it's your own script).
+   8. Copy the "Web app URL" (ends in /exec).
+
+ STEP 4 — Wire it up
+   9. Paste that URL between the quotes of RESEARCH_ENDPOINT near the top
+      of this file's <script> block, e.g.
+         const RESEARCH_ENDPOINT = 'https://script.google.com/macros/s/AKfy.../exec';
+   10. Save this file. Open it, run a calculation, tick consent, Submit —
+       a new row should appear in your Sheet. That Sheet is your dataset:
+       sort, chart, edit, or delete rows there.
+
+ NOTES
+  - The Sheet is your analyse-and-edit view. To delete a bad entry, delete
+    its row; to fix a typo, edit the cell. No code change needed.
+  - To download the data: File ▸ Download ▸ CSV from the Sheet.
+  - If a redeploy gives a new URL, update RESEARCH_ENDPOINT again. (Tip:
+    use "Manage deployments ▸ Edit ▸ Version: New version" to keep the
+    same URL across updates.)
+  - Privacy: this collects no names/contact/fund/employer details. Make
+    sure that matches what you tell participants and your project's ethics
+    requirements before sharing the link.
+========================================================================
+-->
+
+</body>
+</html>
