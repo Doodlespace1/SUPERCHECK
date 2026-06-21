@@ -383,6 +383,38 @@
 
   .full-width { grid-column: 1 / -1; }
 
+  /* Consent pop-up (shown on load, locks the page until accepted) */
+  .consent-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(27, 42, 74, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .consent-modal {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 560px;
+    padding: 32px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  }
+  .consent-modal h2 { margin: 0 0 14px; }
+  .consent-modal p { font-size: 17px; color: var(--navy); margin: 0 0 16px; }
+  .consent-modal .consent-reminder {
+    background: #FCF1E6; border: 1px solid #E0C060;
+    border-radius: 10px; padding: 12px 14px; font-weight: 600;
+  }
+  .consent-modal .consent-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 17px; margin: 18px 0;
+  }
+  .consent-modal .consent-row input { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; }
+  #consentModalContinue {
+    font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 700;
+    color: #fff; background: var(--teal); border: none; border-radius: 10px;
+    padding: 16px 32px; cursor: pointer; width: 100%; min-height: 44px;
+  }
+  #consentModalContinue:hover { background: #0a5c5f; }
+  #consentModalContinue:disabled { background: #9bb9ba; cursor: not-allowed; }
+  body.consent-locked { overflow: hidden; }
+
   /* Contribute-to-research card (public data collection, opt-in) */
   .contribute-card {
     margin-top: 40px;
@@ -711,6 +743,20 @@
 </head>
 <body>
 
+<!-- ============ CONSENT POP-UP (shown on load) ============ -->
+<div class="consent-overlay" id="consentOverlay">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+    <h2 id="consentTitle">Before you start</h2>
+    <p>This calculator is part of a student research project on retirement modelling. If you take part, the anonymous figures you generate — your inputs and your results — are added to a dataset. No names, contact details, fund names or employer names are collected or asked for. Taking part is voluntary, and this is illustrative modelling, not financial advice.</p>
+    <p class="consent-reminder">When you press <strong>“Calculate my super”</strong>, your anonymous figures are recorded for the research automatically — there's nothing else you need to do.</p>
+    <label class="consent-row">
+      <input type="checkbox" id="consentModalCheck">
+      <span>I have read and consent to take part in this research.</span>
+    </label>
+    <button type="button" id="consentModalContinue" disabled>Continue to the calculator</button>
+  </div>
+</div>
+
 <div class="a11y-bar">
   <span id="textSizeLabel">Text size</span>
   <div class="text-size-group" role="group" aria-labelledby="textSizeLabel">
@@ -747,7 +793,7 @@
     </div>
 
     <h2>Tell us about your super</h2>
-    <p style="color: var(--muted);">Enter your details below. Everything is calculated right here in your browser, and nothing is sent anywhere — unless you choose to submit your anonymous response to our research after seeing your results.</p>
+    <p style="color: var(--muted);">Enter your details below. Everything is calculated right here in your browser. Because you've agreed to take part, each calculation's anonymous figures are also recorded for the research — no names, contact, fund or employer details are collected.</p>
 
     <div class="form-grid">
 
@@ -921,17 +967,13 @@
       </div>
     </div>
 
-    <!-- ============ CONTRIBUTE TO RESEARCH (opt-in) ============ -->
+    <!-- ============ CONTRIBUTE TO RESEARCH ============ -->
     <div class="contribute-card results-hidden" id="contributeCard">
-      <h3>Help our research (optional)</h3>
-      <p>If you tick the box and submit, the anonymous figures above (your inputs and results) are added to a dataset for a student research project on retirement modelling. No names, contact details, fund names or employer names are collected or asked for. Taking part is voluntary — the calculator works whether or not you submit. This is illustrative modelling, not financial advice.</p>
-      <label class="contribute-consent">
-        <input type="checkbox" id="contributeConsent">
-        <span>I consent to share my anonymous inputs and results for this research.</span>
-      </label>
+      <h3>Your response to the research</h3>
+      <p>Because you consented when you opened this page, the anonymous figures above (your inputs and results) are recorded automatically each time you calculate. No names, contact, fund or employer details are collected.</p>
       <div>
-        <button type="button" id="contributeSubmit" disabled>Submit my response</button>
         <span class="contribute-status" id="contributeStatus" role="status" aria-live="polite"></span>
+        <button type="button" id="contributeSubmit" style="display:none;">Try sending again</button>
       </div>
     </div>
   </div>
@@ -1013,7 +1055,7 @@
 <footer>
   SuperCheck is a modelling tool only and does not constitute financial advice. Consult a licensed financial adviser for personal recommendations.
   Return parameters fitted to Chant West SR50/SR25 median returns (2004&ndash;2024); fee defaults from the APRA MySuper Bulletin (2023).
-  If you choose to submit, your anonymous inputs and results are stored for a student research project; no names, contact, fund or employer details are collected.
+  Each calculation's anonymous inputs and results are stored for a student research project; no names, contact, fund or employer details are collected.
 </footer>
 
 <script>
@@ -1551,12 +1593,10 @@ document.getElementById('calcBtn').addEventListener('click', () => {
 
   initSliders(inputs);   // independent of charts
 
-  // Reveal the opt-in research-contribution card, reset to un-submitted state.
+  // Reveal the research card and auto-send this calculation — consent was given
+  // in the pop-up on load, so no button press is needed.
   document.getElementById('contributeCard').classList.remove('results-hidden');
-  document.getElementById('contributeConsent').checked = false;
-  document.getElementById('contributeSubmit').disabled = true;
-  document.getElementById('contributeStatus').textContent = '';
-  document.getElementById('contributeStatus').className = 'contribute-status';
+  autoSendResearch();
 
   playCalcNarrative();
 });
@@ -1606,23 +1646,37 @@ function buildResearchRecord() {
   };
 }
 
-const contributeConsent = document.getElementById('contributeConsent');
 const contributeSubmit = document.getElementById('contributeSubmit');
 const contributeStatus = document.getElementById('contributeStatus');
 
-contributeConsent.addEventListener('change', () => {
-  contributeSubmit.disabled = !contributeConsent.checked;
+// Consent pop-up shown on load — the page is locked until the visitor consents.
+let researchConsented = false;
+const consentOverlay = document.getElementById('consentOverlay');
+const consentModalCheck = document.getElementById('consentModalCheck');
+const consentModalContinue = document.getElementById('consentModalContinue');
+document.body.classList.add('consent-locked');
+consentModalCheck.addEventListener('change', () => {
+  consentModalContinue.disabled = !consentModalCheck.checked;
+});
+consentModalContinue.addEventListener('click', () => {
+  if (!consentModalCheck.checked) return;
+  researchConsented = true;
+  consentOverlay.style.display = 'none';
+  document.body.classList.remove('consent-locked');
 });
 
-contributeSubmit.addEventListener('click', () => {
-  if (!contributeConsent.checked || !baseInputs) return;
+// Auto-send the current calculation to the research Sheet. Runs on every
+// "Calculate" (consent was given in the pop-up). The button only appears as a
+// retry if a send fails.
+function autoSendResearch() {
+  if (!researchConsented || !baseInputs) return;
+  contributeSubmit.style.display = 'none';
   if (!RESEARCH_ENDPOINT) {
-    contributeStatus.textContent = 'Submission isn’t set up yet (no endpoint configured).';
+    contributeStatus.textContent = 'Recording isn’t set up yet (no endpoint configured).';
     contributeStatus.className = 'contribute-status err';
     return;
   }
-  contributeSubmit.disabled = true;
-  contributeStatus.textContent = 'Sending…';
+  contributeStatus.textContent = 'Recording your response…';
   contributeStatus.className = 'contribute-status';
   // Apps Script web apps accept a "simple" POST (text/plain avoids a CORS
   // preflight); no-cors means we can't read the reply, so we confirm
@@ -1633,15 +1687,17 @@ contributeSubmit.addEventListener('click', () => {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(buildResearchRecord())
   }).then(() => {
-    contributeStatus.textContent = 'Thanks — your response was recorded.';
+    contributeStatus.textContent = '✓ Recorded — thank you for taking part.';
     contributeStatus.className = 'contribute-status ok';
-    contributeConsent.disabled = true;
   }).catch(() => {
-    contributeStatus.textContent = 'Couldn’t send — please check your connection and try again.';
+    contributeStatus.textContent = 'Couldn’t send automatically — check your connection.';
     contributeStatus.className = 'contribute-status err';
-    contributeSubmit.disabled = false;
+    contributeSubmit.style.display = 'inline-block';  // show retry button
   });
-});
+}
+
+// Retry button — only shown after a failed auto-send.
+contributeSubmit.addEventListener('click', autoSendResearch);
 
 // Sequenced status strip shown after Calculate. The computation above has
 // already finished — this narrates what it genuinely did, then scrolls.
