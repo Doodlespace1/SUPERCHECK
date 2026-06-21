@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperCheck Research Instrument — Internal</title>
+<!--
+  Internal research instrument. Standalone: no external network calls, no
+  analytics, no shared code with supercheck.html. The CONFIG object and the
+  model functions below are copied VERBATIM from SuperCheck model v1.2
+  (finalised 2026-06-18) so this instrument stays frozen at that model version
+  even if the public tool changes later. Do not edit the frozen block.
+-->
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1a1a1a;
+    background: #f4f4f4;
+    padding: 24px;
+  }
+  .sheet {
+    max-width: 1040px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 28px 32px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; }
+  .subtitle { color: #555; font-size: 14px; margin: 0 0 6px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  .session-note {
+    background: #fff3cd;
+    border: 1px solid #e0c060;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 12px 0 0;
+  }
+
+  /* Consent */
+  .consent-body {
+    border: 1px solid #ccc;
+    background: #fafafa;
+    padding: 18px 20px;
+    font-size: 15px;
+  }
+  .consent-body ul { margin: 10px 0 0; padding-left: 20px; }
+  .consent-body li { margin-bottom: 6px; }
+  .consent-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .consent-check input { margin-top: 4px; width: 18px; height: 18px; }
+
+  /* App */
+  #researchApp { display: none; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 24px;
+  }
+  .field { display: flex; flex-direction: column; }
+  .field label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .field input, .field select {
+    font-size: 15px;
+    padding: 8px 10px;
+    border: 1px solid #999;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .field .hint { font-size: 12px; color: #666; margin-top: 3px; }
+  .pcode {
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+    background: #eef;
+    border: 1px solid #99c;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 15px;
+  }
+  #formMode {
+    font-size: 13px;
+    font-weight: 700;
+    color: #863;
+    margin-bottom: 8px;
+    min-height: 16px;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border: 1px solid #333;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { background: #000; }
+  button.secondary { background: #fff; color: #333; }
+  button.secondary:hover { background: #eee; }
+  button.danger { background: #fff; color: #b00; border-color: #b00; }
+  button.danger:hover { background: #fdecec; }
+  button:disabled { background: #bbb; border-color: #bbb; color: #fff; cursor: not-allowed; }
+  .btn-row { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .error { color: #b00; font-size: 13px; margin-top: 8px; min-height: 16px; }
+
+  /* Detail view */
+  #detail {
+    border: 1px solid #99c;
+    background: #f6f8ff;
+    padding: 16px 20px;
+    margin-top: 6px;
+  }
+  #detail .detail-code { font-family: ui-monospace, monospace; font-weight: 700; font-size: 16px; }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 28px;
+    margin-top: 6px;
+  }
+  .detail-grid .dl { display: flex; justify-content: space-between; border-bottom: 1px dotted #ccd; padding: 3px 0; font-size: 14px; }
+  .detail-grid .dl .k { color: #444; }
+  .detail-grid .dl .v { font-family: ui-monospace, monospace; font-weight: 700; text-align: right; }
+  .detail-note { font-size: 12px; color: #666; margin-top: 8px; }
+
+  /* Table */
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 6px; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: right; }
+  th { background: #eee; text-align: right; }
+  th.left, td.left { text-align: left; }
+  tbody tr.datarow { cursor: pointer; }
+  tbody tr.datarow:nth-child(even) { background: #fafafa; }
+  tbody tr.datarow:hover { background: #eef3ff; }
+  tbody tr.selected { background: #dfe8ff !important; }
+  td.actions { white-space: nowrap; }
+  td.actions button { padding: 3px 9px; font-size: 12px; margin: 0 2px; }
+  .empty-note { color: #777; font-size: 14px; font-style: italic; }
+
+  /* Aggregates */
+  .agg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 24px;
+    font-size: 14px;
+  }
+  .agg-grid .stat { display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 4px 0; }
+  .agg-grid .stat .v { font-family: ui-monospace, monospace; font-weight: 700; }
+  .headline {
+    margin-top: 14px;
+    background: #fff8e6;
+    border: 1px solid #e0c060;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  .caveat { font-size: 12px; color: #666; margin-top: 10px; font-style: italic; }
+
+  footer {
+    max-width: 1040px;
+    margin: 16px auto 0;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <h1>SuperCheck Research Instrument</h1>
+  <p class="subtitle mono">Internal data-collection tool — model v1.2 (frozen 2026-06-18) — data vintage: Chant West 2004&ndash;2024, Services Australia March 2026</p>
+
+  <!-- ============ CONSENT GATE ============ -->
+  <div id="consentScreen">
+    <h2>Participant consent</h2>
+    <div class="consent-body">
+      <p>Your superannuation details will be recorded for a student research project on retirement modelling methods.</p>
+      <ul>
+        <li>The data is anonymised. No names are collected, and no identifying fund or employer details are stored.</li>
+        <li>You are given an automatic code (such as P01) instead of any name.</li>
+        <li>Participation is voluntary. You may stop at any time.</li>
+        <li>The output is illustrative modelling only. It is not financial advice.</li>
+        <li>Records are held in this browser session only and are gone when the page is closed, unless you export them.</li>
+      </ul>
+    </div>
+    <label class="consent-check">
+      <input type="checkbox" id="consentCheck">
+      <span>I have read and consent to take part in this research.</span>
+    </label>
+    <div class="btn-row">
+      <button id="consentContinue" disabled>Continue</button>
+    </div>
+  </div>
+
+  <!-- ============ RESEARCH APP (hidden until consent) ============ -->
+  <div id="researchApp">
+    <p class="session-note">Session only — records live in memory and are wiped on refresh or close. Export before closing.</p>
+
+    <h2>Participant entry</h2>
+    <div id="formMode"></div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="r-code">Participant code</label>
+        <div class="pcode" id="r-code">P01</div>
+        <div class="hint">Auto-generated. No name is ever recorded.</div>
+      </div>
+      <div class="field">
+        <label for="r-age">Current age</label>
+        <input type="number" id="r-age" min="18" max="74" value="45">
+      </div>
+      <div class="field">
+        <label for="r-balance">Current super balance ($)</label>
+        <input type="number" id="r-balance" min="0" step="1000" value="120000">
+      </div>
+      <div class="field">
+        <label for="r-salary">Annual salary before tax ($)</label>
+        <input type="number" id="r-salary" min="0" step="1000" value="95000">
+      </div>
+      <div class="field">
+        <label for="r-extra">Extra monthly contributions ($)</label>
+        <input type="number" id="r-extra" min="0" step="50" value="0">
+      </div>
+      <div class="field">
+        <label for="r-fund">Fund type (risk category)</label>
+        <select id="r-fund">
+          <option>High Growth</option>
+          <option selected>Balanced</option>
+          <option>Conservative</option>
+          <option>Cash</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="r-fee">Annual fee (%)</label>
+        <input type="number" id="r-fee" min="0" max="5" step="0.1" value="0.8">
+      </div>
+      <div class="field">
+        <label for="r-retire">Expected retirement age</label>
+        <input type="number" id="r-retire" min="55" max="80" value="67">
+      </div>
+      <div class="field">
+        <label for="r-type">Retirement type</label>
+        <select id="r-type">
+          <option selected>Single</option>
+          <option>Couple</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="r-home">Homeowner</label>
+        <select id="r-home">
+          <option value="Yes" selected>Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="error" id="r-error"></div>
+    <div class="btn-row">
+      <button id="r-submit">Run model &amp; record participant</button>
+      <button class="secondary" id="r-cancel" style="display:none;">Cancel edit</button>
+    </div>
+
+    <h2>Participant detail</h2>
+    <div id="detail">
+      <p class="empty-note" id="detailEmpty">Record or select a participant to see the full readout here.</p>
+      <div id="detailContent" style="display:none;"></div>
+    </div>
+
+    <h2>Participants this session (<span id="r-count">0</span>)</h2>
+    <p class="empty-note" id="emptyNote">No participants recorded yet.</p>
+    <table id="r-table" style="display:none;">
+      <thead>
+        <tr>
+          <th class="left">Code</th>
+          <th>Age</th>
+          <th>Balance</th>
+          <th class="left">Fund</th>
+          <th>Fee %</th>
+          <th>Fee drag</th>
+          <th>Det vs stochastic gap</th>
+          <th>Assisted survival</th>
+          <th class="left">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="r-tbody"></tbody>
+    </table>
+    <div class="btn-row">
+      <button class="secondary" id="r-csv" disabled>Download CSV</button>
+      <button class="secondary" id="r-json" disabled>Download JSON</button>
+      <button class="danger" id="r-clear" disabled>Clear all records</button>
+    </div>
+
+    <h2>Descriptive statistics</h2>
+    <p class="empty-note" id="aggEmpty">Aggregate statistics appear once participants are recorded.</p>
+    <div id="aggContent" style="display:none;">
+      <div class="agg-grid">
+        <div class="stat"><span>Participants (n)</span><span class="v" id="agg-n">0</span></div>
+        <div class="stat"><span>Mean fee drag</span><span class="v" id="agg-feemean">&mdash;</span></div>
+        <div class="stat"><span>Fee drag range</span><span class="v" id="agg-feerange">&mdash;</span></div>
+        <div class="stat"><span>Mean deterministic&ndash;vs&ndash;stochastic gap</span><span class="v" id="agg-gapmean">&mdash;</span></div>
+        <div class="stat"><span>Clear ASFA comfortable (stochastic median)</span><span class="v" id="agg-clearstoch">&mdash;</span></div>
+        <div class="stat"><span>Clear ASFA comfortable (deterministic)</span><span class="v" id="agg-cleardet">&mdash;</span></div>
+      </div>
+      <div class="headline" id="agg-headline"></div>
+      <p class="caveat">These are descriptive statistics on a convenience sample of participants entered this session. They are not population estimates and are not generalisable beyond this sample.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Internal research instrument. Convenience sample. Illustrative modelling only &mdash; not financial advice. Data anonymised; participants consented.
+</footer>
+
+<script>
+/* =====================================================================
+   FROZEN MODEL — copied verbatim from SuperCheck model v1.2 (2026-06-18).
+   CONFIG + calcDeterministic, calcPercentile, calcFeeDrag, runMonteCarlo
+   (with its dependency runMonteCarloCore). Do not edit — this instrument
+   must stay frozen at this model version even if the public tool changes.
+   ===================================================================== */
+const CONFIG = {
+  SG_RATE: 0.12,  // legislated rate from July 2025
+  // Concessional contributions (employer SG) are taxed at 15% on entry to the fund.
+  CONTRIB_TAX: 0.15,
+  WAGE_GROWTH: 0.035,  // salary grows 3.5% p.a., so contributions rise over time
+  INFLATION: 0.025,    // all projected balances are deflated to today's dollars
+  // ASFA Retirement Standard, December 2025 quarter (latest release).
+  ASFA_COMFORTABLE_SINGLE: 630000,
+  ASFA_COMFORTABLE_COUPLE: 730000,
+  ASFA_MODEST_SINGLE: 250000,
+  ASFA_MODEST_COUPLE: 320000,
+  // Annual ASFA comfortable spending budgets (today's dollars), Dec 2025 quarter.
+  ASFA_SPEND_SINGLE: 54240,
+  ASFA_SPEND_COUPLE: 76505,
+  DRAWDOWN_END_AGE: 95,
+  // Age Pension parameters, Services Australia rates from 20 March 2026.
+  // Pension rates and thresholds are indexed, so constant today's-dollar
+  // values are the right treatment in a real-dollar model.
+  PENSION_MAX_SINGLE: 31223,             // $1,200.90/fortnight incl. supplements
+  PENSION_MAX_COUPLE: 47070,             // $1,810.40/fortnight combined
+  ASSET_TEST_THRESHOLD_SINGLE: 321500,   // homeowner, full-pension limit
+  ASSET_TEST_THRESHOLD_COUPLE: 481500,   // homeowner, combined
+  NON_HOMEOWNER_OFFSET: 258000,          // added to thresholds for non-homeowners
+  ASSET_TAPER: 78,                       // $/year lost per $1,000 over the threshold ($3/fortnight)
+  // Median super balance by age — ATO Individuals statistics, year ended June 2022
+  // (as compiled in ASFA's 2024 account-balances paper). Persons anchor = midpoint of
+  // the published male and female medians per 5-year band (ATO publishes no combined
+  // persons median by single age band).
+  ABS_BENCHMARKS: { 35: 62000, 40: 88000, 45: 114000, 50: 137000, 55: 157000, 60: 180000, 65: 199000 },
+  FUND_PARAMS: {
+    "High Growth": { mean: 0.080, std: 0.117 },
+    "Balanced":    { mean: 0.067, std: 0.094 },
+    "Conservative":{ mean: 0.048, std: 0.052 },
+    "Cash":        { mean: 0.034, std: 0.018 }
+  },
+  DATA_SOURCE: "Chant West SR50/SR25 median returns 2004-2024, fitted via MLE normal distribution",
+  DATA_YEARS: 21,
+  // Full 2004-2024 annual return series (decimals) — the Monte Carlo bootstrap
+  // resamples these directly so the simulation keeps the empirical fat tails.
+  HISTORICAL_RETURNS: {
+    "High Growth": [0.142, 0.187, 0.164, 0.168, -0.267, -0.134, 0.098, 0.012, 0.104, 0.198, 0.131, 0.097, 0.082, 0.136, 0.102, -0.008, 0.033, 0.221, -0.048, 0.124, 0.141],
+    "Balanced":    [0.121, 0.149, 0.132, 0.135, -0.218, -0.104, 0.082, 0.009, 0.092, 0.156, 0.112, 0.086, 0.068, 0.108, 0.089, 0.006, 0.028, 0.174, -0.034, 0.097, 0.113],
+    "Conservative":[0.083, 0.094, 0.086, 0.081, -0.124, -0.051, 0.061, 0.038, 0.068, 0.094, 0.079, 0.058, 0.049, 0.062, 0.054, 0.032, 0.029, 0.098, 0.002, 0.056, 0.064],
+    "Cash":        [0.051, 0.055, 0.058, 0.063, 0.059, 0.038, 0.041, 0.047, 0.042, 0.031, 0.028, 0.023, 0.020, 0.019, 0.018, 0.017, 0.008, 0.003, 0.009, 0.038, 0.042]
+  },
+  // Aggregate fee ratios (admin + investment fees paid / MySuper assets) from
+  // the APRA MySuper Bulletin, year ended June 2023. Note: "fees paid" excludes
+  // indirect investment costs netted from unit prices, so these understate the
+  // all-in cost members experience.
+  DEFAULT_FEE_INDUSTRY: 0.4,  // APRA MySuper median, 2023
+  DEFAULT_FEE_RETAIL: 0.3,    // APRA MySuper median, 2023
+  FEE_DATA_SOURCE: "APRA MySuper Bulletin 2023",
+  FUND_DESCRIPTIONS: {
+    "High Growth": "Mostly shares and property. Higher long-term growth potential, but bigger ups and downs along the way.",
+    "Balanced": "A mix of growth assets (shares, property) and defensive assets (bonds, cash). The most common default option.",
+    "Conservative": "Mostly bonds and cash with some shares. Smoother ride, but lower long-term growth.",
+    "Cash": "Cash and term deposits only. Very stable, but unlikely to keep pace with inflation over the long term."
+  }
+};
+
+// Compound balance year by year using a fixed mean return.
+function calcDeterministic(inputs) {
+  const { balance, salary, extraMonthly, fundType, feePct, age, retireAge } = inputs;
+  const years = retireAge - age;
+  const meanReturn = CONFIG.FUND_PARAMS[fundType].mean;
+  const feeRate = feePct / 100;
+
+  let bal = balance;       // nominal dollars
+  let sal = salary;        // grows with wages each year
+  const path = [bal];      // deflated to today's dollars
+
+  for (let y = 0; y < years; y++) {
+    const annualContribution = sal * CONFIG.SG_RATE * (1 - CONFIG.CONTRIB_TAX) + extraMonthly * 12 * Math.pow(1 + CONFIG.WAGE_GROWTH, y);
+    bal = bal * (1 + meanReturn - feeRate) + annualContribution;
+    sal *= 1 + CONFIG.WAGE_GROWTH;
+    path.push(bal / Math.pow(1 + CONFIG.INFLATION, y + 1));
+  }
+
+  // path already holds today's-dollar values; final entry covers years === 0 too.
+  return { finalBalance: path[path.length - 1], path };
+}
+
+// Compare current balance against ATO median benchmarks (June 2022, via ASFA 2024)
+function calcPercentile(inputs) {
+  const { balance, age } = inputs;
+  const brackets = Object.keys(CONFIG.ABS_BENCHMARKS).map(Number).sort((a, b) => a - b);
+
+  // Clamp age to the available bracket range
+  let clampedAge = age;
+  if (clampedAge < brackets[0]) clampedAge = brackets[0];
+  if (clampedAge > brackets[brackets.length - 1]) clampedAge = brackets[brackets.length - 1];
+
+  // Find the nearest bracket (round to nearest defined age)
+  let nearestBracket = brackets[0];
+  let minDiff = Math.abs(clampedAge - brackets[0]);
+  for (const b of brackets) {
+    const diff = Math.abs(clampedAge - b);
+    if (diff < minDiff) {
+      minDiff = diff;
+      nearestBracket = b;
+    }
+  }
+
+  const median = CONFIG.ABS_BENCHMARKS[nearestBracket];
+
+  // Model the distribution around the median balance as roughly log-normal-ish:
+  // use a simple ratio-based percentile estimate. A balance equal to the
+  // median benchmark = 50th percentile. Each doubling/halving moves ~25 percentile points,
+  // clamped to [1, 99].
+  const ratio = balance <= 0 ? 0 : balance / median;
+  let percentile;
+  if (ratio <= 0) {
+    percentile = 1;
+  } else {
+    const log2ratio = Math.log2(ratio);
+    percentile = 50 + log2ratio * 25;
+  }
+  percentile = Math.max(1, Math.min(99, Math.round(percentile)));
+
+  return {
+    percentile,
+    bracket: nearestBracket,
+    label: `Ahead of ${percentile}% of Australians your age`
+  };
+}
+
+// Run the deterministic projection at the user's fee rate and at 0.5%, return the dollar gap.
+function calcFeeDrag(inputs) {
+  const atUserFee = calcDeterministic(inputs).finalBalance;
+  const atLowFee = calcDeterministic({ ...inputs, feePct: 0.5 }).finalBalance;
+  return Math.max(0, atLowFee - atUserFee);
+}
+
+// Box-Muller transform: returns one standard-normal random value.
+function randNormal() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// Monte Carlo simulation of retirement balance. The annual return draw is
+// supplied by sampleReturn so the bootstrap and normal variants share
+// identical contribution/fee/tax/inflation logic.
+function runMonteCarloCore(inputs, iterations, sampleReturn) {
+  const { balance, salary, extraMonthly, feePct, age, retireAge, retireType } = inputs;
+  const years = retireAge - age;
+  const feeRate = feePct / 100;
+  const asfaThreshold = retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+  // Drawdown phase: withdraw the ASFA comfortable budget (a constant amount in
+  // today's dollars, so it grows with inflation in nominal terms) until age 95.
+  const annualSpend = retireType === 'Couple' ? CONFIG.ASFA_SPEND_COUPLE : CONFIG.ASFA_SPEND_SINGLE;
+  const drawYears = Math.max(0, CONFIG.DRAWDOWN_END_AGE - retireAge);
+  const totalYears = years + drawYears;
+
+  // Age Pension means test (asset test only — for retirees drawing down super
+  // the asset test usually binds before the income test).
+  const pensionMax = retireType === 'Couple' ? CONFIG.PENSION_MAX_COUPLE : CONFIG.PENSION_MAX_SINGLE;
+  let assetThreshold = retireType === 'Couple' ? CONFIG.ASSET_TEST_THRESHOLD_COUPLE : CONFIG.ASSET_TEST_THRESHOLD_SINGLE;
+  if (inputs.homeowner === false) assetThreshold += CONFIG.NON_HOMEOWNER_OFFSET;
+  // Entitlement is assessed on the today's-dollar balance each year, since
+  // pension rates and thresholds are indexed.
+  function pensionFor(realBalance) {
+    const over = Math.max(0, realBalance - assetThreshold);
+    return Math.max(0, Math.min(pensionMax, pensionMax - (over / 1000) * CONFIG.ASSET_TAPER));
+  }
+
+  // Precompute per-year deflators so every recorded value is in today's dollars.
+  const deflators = new Array(totalYears + 1);
+  for (let y = 0; y <= totalYears; y++) deflators[y] = Math.pow(1 + CONFIG.INFLATION, y);
+
+  const finals = new Array(iterations);
+  // Age at which each path's balance hits zero; END_AGE + 1 marks "survived to 95+".
+  const survivedSentinel = CONFIG.DRAWDOWN_END_AGE + 1;
+  const depletionAges = new Array(iterations);
+  const depletionAgesUnassisted = new Array(iterations);
+
+  // Sample every 10th run's full path for percentile-path charting.
+  const sampleStep = 10;
+  const sampledPaths = [];
+
+  for (let i = 0; i < iterations; i++) {
+    let bal = balance;
+    let sal = salary;
+    const recordPath = (i % sampleStep === 0);
+    const path = recordPath ? [bal] : null;
+
+    for (let y = 0; y < years; y++) {
+      const annualContribution = sal * CONFIG.SG_RATE * (1 - CONFIG.CONTRIB_TAX) + extraMonthly * 12 * Math.pow(1 + CONFIG.WAGE_GROWTH, y);
+      const r = sampleReturn();
+      bal = bal * (1 + r - feeRate) + annualContribution;
+      sal *= 1 + CONFIG.WAGE_GROWTH;
+      if (bal < 0) bal = 0;
+      if (recordPath) path.push(bal / deflators[y + 1]);
+    }
+
+    finals[i] = bal / deflators[years];
+
+    // Drawdown: no contributions; returns and fees still apply; withdraw the
+    // inflation-indexed ASFA budget at the end of each year, less whatever the
+    // Age Pension covers. As the balance falls, the pension rises, so the net
+    // draw on super shrinks — both balances share the same return draws so the
+    // assisted/unassisted comparison isolates the pension effect.
+    let depletionAge = survivedSentinel;
+    let depletionAgeUnassisted = survivedSentinel;
+    let balU = bal; // pension-free shadow balance
+    for (let d = 0; d < drawYears; d++) {
+      const r = sampleReturn();
+      const growth = 1 + r - feeRate;
+      const deflator = deflators[years + d + 1];
+
+      if (depletionAge === survivedSentinel) {
+        const pension = pensionFor(bal / deflators[years + d]);
+        const netSpend = Math.max(0, annualSpend - pension);
+        bal = bal * growth - netSpend * deflator;
+        if (bal <= 0) depletionAge = retireAge + d + 1;
+      }
+
+      if (depletionAgeUnassisted === survivedSentinel) {
+        balU = balU * growth - annualSpend * deflator;
+        if (balU <= 0) depletionAgeUnassisted = retireAge + d + 1;
+      }
+
+      if (depletionAge !== survivedSentinel && depletionAgeUnassisted !== survivedSentinel) break;
+    }
+    depletionAges[i] = depletionAge;
+    depletionAgesUnassisted[i] = depletionAgeUnassisted;
+
+    if (recordPath) sampledPaths.push(path);
+  }
+
+  // Sort finals for percentile extraction.
+  const sortedFinals = [...finals].sort((a, b) => a - b);
+  const pct = (p) => {
+    const idx = Math.min(sortedFinals.length - 1, Math.floor((p / 100) * sortedFinals.length));
+    return sortedFinals[idx];
+  };
+
+  const finalPercentiles = {
+    p10: pct(10),
+    p25: pct(25),
+    p50: pct(50),
+    p75: pct(75),
+    p90: pct(90)
+  };
+
+  // Year-by-year percentile paths from the sampled subset.
+  const yearCount = years + 1;
+  const yearPercentiles = { p10: [], p25: [], p50: [], p75: [], p90: [] };
+
+  for (let y = 0; y < yearCount; y++) {
+    const valuesAtYear = sampledPaths.map(p => p[y]).sort((a, b) => a - b);
+    const pctAtYear = (p) => {
+      const idx = Math.min(valuesAtYear.length - 1, Math.floor((p / 100) * valuesAtYear.length));
+      return valuesAtYear[idx];
+    };
+    yearPercentiles.p10.push(pctAtYear(10));
+    yearPercentiles.p25.push(pctAtYear(25));
+    yearPercentiles.p50.push(pctAtYear(50));
+    yearPercentiles.p75.push(pctAtYear(75));
+    yearPercentiles.p90.push(pctAtYear(90));
+  }
+
+  // Probability of clearing ASFA comfortable threshold.
+  const clearedCount = finals.filter(f => f >= asfaThreshold).length;
+  const probability = (clearedCount / iterations) * 100;
+
+  // Survival: percentage of paths where the balance is still positive at 90.
+  const survivalTo90 = depletionAges.filter(a => a > 90).length / iterations * 100;
+  const survivalTo90Unassisted = depletionAgesUnassisted.filter(a => a > 90).length / iterations * 100;
+
+  return {
+    finalPercentiles,
+    yearPercentiles,
+    probability,
+    asfaThreshold,
+    depletionAges,
+    survivalTo90,
+    survivalTo90Unassisted,
+    retireAge,
+    annualSpend
+  };
+}
+
+// Seedable PRNG (mulberry32). Reseeded per call so identical inputs always
+// produce identical results — reproducible for users and for QA.
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Bootstrap Monte Carlo (default): each simulated year resamples one of the
+// 21 actual historical annual returns (with replacement), preserving the
+// empirical fat tails the normal distribution cannot capture. A fixed seed
+// makes the same inputs reproduce exactly (base and scenario runs included).
+function runMonteCarlo(inputs, iterations = 5000) {
+  const hist = CONFIG.HISTORICAL_RETURNS[inputs.fundType];
+  const rand = mulberry32(42);
+  return runMonteCarloCore(inputs, iterations,
+    () => hist[Math.floor(rand() * hist.length)]);
+}
+/* ===================== END FROZEN MODEL ===================== */
+
+
+/* =====================================================================
+   RESEARCH INSTRUMENT — UI, capture, edit/delete, aggregation, export.
+   In-memory only; no storage APIs; no network calls.
+   ===================================================================== */
+const participants = [];   // in-memory session store
+let nextNum = 1;           // counter for new participant codes
+let editingCode = null;    // code currently being edited, or null
+let selectedCode = null;   // code shown in the detail view, or null
+
+const $ = id => document.getElementById(id);
+function pad(n) { return 'P' + String(n).padStart(2, '0'); }
+function money(v) { return '$' + Math.round(v).toLocaleString('en-AU'); }
+
+/* ---- Consent gate ---- */
+$('consentCheck').addEventListener('change', () => {
+  $('consentContinue').disabled = !$('consentCheck').checked;
+});
+$('consentContinue').addEventListener('click', () => {
+  if (!$('consentCheck').checked) return;
+  $('consentScreen').style.display = 'none';
+  $('researchApp').style.display = 'block';
+  $('r-code').textContent = pad(nextNum);
+});
+
+/* ---- Read & validate the form ---- */
+function readInputs() {
+  return {
+    balance: Number($('r-balance').value),
+    age: Number($('r-age').value),
+    salary: Number($('r-salary').value),
+    extraMonthly: Number($('r-extra').value),
+    fundType: $('r-fund').value,
+    feePct: Number($('r-fee').value),
+    retireAge: Number($('r-retire').value),
+    retireType: $('r-type').value,
+    homeowner: $('r-home').value === 'Yes'
+  };
+}
+
+function validate(inp) {
+  if (!Number.isFinite(inp.balance) || inp.balance < 0) return 'Balance must be 0 or more.';
+  if (!Number.isInteger(inp.age) || inp.age < 18 || inp.age > 74) return 'Age must be a whole number between 18 and 74.';
+  if (!Number.isFinite(inp.salary) || inp.salary < 0) return 'Salary must be 0 or more.';
+  if (!Number.isFinite(inp.extraMonthly) || inp.extraMonthly < 0) return 'Extra contributions must be 0 or more.';
+  if (!Number.isFinite(inp.feePct) || inp.feePct < 0 || inp.feePct > 5) return 'Fee must be between 0 and 5 percent.';
+  if (!Number.isInteger(inp.retireAge) || inp.retireAge < 55 || inp.retireAge > 80) return 'Retirement age must be a whole number between 55 and 80.';
+  if (inp.retireAge <= inp.age) return 'Retirement age must be after current age.';
+  return null;
+}
+
+/* ---- Build a full record from inputs (runs all four model functions) ---- */
+function computeRecord(code, inp) {
+  // Research-instrument-only seeding: seed the Monte Carlo from the participant
+  // number so each code reproduces its own results exactly on re-entry/edit,
+  // while distinct codes get independent draws (even with identical inputs).
+  // This overrides the frozen runMonteCarlo's fixed seed for capture purposes;
+  // mulberry32 and runMonteCarloCore are reused unchanged from the frozen block.
+  const seed = parseInt(code.replace('P', ''), 10) * 1337;
+  const rand = mulberry32(seed);
+  const hist = CONFIG.HISTORICAL_RETURNS[inp.fundType];
+  const mcSeeded = (ipt, itr) => runMonteCarloCore(ipt, itr, () => hist[Math.floor(rand() * hist.length)]);
+
+  const det = calcDeterministic(inp);
+  const pctl = calcPercentile(inp);
+  const feeDrag = calcFeeDrag(inp);
+  const mc = mcSeeded(inp, 5000);
+
+  const asfaComfortable = inp.retireType === 'Couple' ? CONFIG.ASFA_COMFORTABLE_COUPLE : CONFIG.ASFA_COMFORTABLE_SINGLE;
+  const pensionGap = mc.survivalTo90 - mc.survivalTo90Unassisted;
+  const detVsStochastic = det.finalBalance - mc.finalPercentiles.p50; // core finding
+
+  return {
+    code,
+    // inputs
+    age: inp.age,
+    balance: inp.balance,
+    salary: inp.salary,
+    extraMonthly: inp.extraMonthly,
+    fundType: inp.fundType,
+    feePct: inp.feePct,
+    retireAge: inp.retireAge,
+    retireType: inp.retireType,
+    homeowner: inp.homeowner ? 'Yes' : 'No',
+    // outputs
+    deterministicBalance: Math.round(det.finalBalance),
+    percentile: pctl.percentile,
+    percentileBracket: pctl.bracket,
+    feeDrag: Math.round(feeDrag),
+    mc_p10: Math.round(mc.finalPercentiles.p10),
+    mc_p25: Math.round(mc.finalPercentiles.p25),
+    mc_p50: Math.round(mc.finalPercentiles.p50),
+    mc_p75: Math.round(mc.finalPercentiles.p75),
+    mc_p90: Math.round(mc.finalPercentiles.p90),
+    survivalAssistedPct: Math.round(mc.survivalTo90 * 10) / 10,
+    survivalUnassistedPct: Math.round(mc.survivalTo90Unassisted * 10) / 10,
+    pensionGapPp: Math.round(pensionGap * 10) / 10,
+    detVsStochasticGap: Math.round(detVsStochastic),
+    asfaComfortableThreshold: asfaComfortable,
+    clearsStochasticMedian: mc.finalPercentiles.p50 >= asfaComfortable,
+    clearsDeterministic: det.finalBalance >= asfaComfortable
+  };
+}
+
+/* ---- Submit (add new OR update existing) ---- */
+$('r-submit').addEventListener('click', () => {
+  const inp = readInputs();
+  const err = validate(inp);
+  if (err) { $('r-error').textContent = err; return; }
+  $('r-error').textContent = '';
+
+  if (editingCode) {
+    const idx = participants.findIndex(p => p.code === editingCode);
+    if (idx !== -1) participants[idx] = computeRecord(editingCode, inp);
+    selectedCode = editingCode;
+    exitEditMode();
+  } else {
+    const code = pad(nextNum);
+    participants.push(computeRecord(code, inp));
+    selectedCode = code;
+    nextNum += 1;
+    $('r-code').textContent = pad(nextNum);
+  }
+  refreshAll();
+});
+
+/* ---- Edit mode ---- */
+function startEdit(code) {
+  const r = participants.find(p => p.code === code);
+  if (!r) return;
+  editingCode = code;
+  $('r-balance').value = r.balance;
+  $('r-age').value = r.age;
+  $('r-salary').value = r.salary;
+  $('r-extra').value = r.extraMonthly;
+  $('r-fund').value = r.fundType;
+  $('r-fee').value = r.feePct;
+  $('r-retire').value = r.retireAge;
+  $('r-type').value = r.retireType;
+  $('r-home').value = r.homeowner;
+  $('r-code').textContent = code;
+  $('formMode').textContent = 'Editing ' + code + ' — change any value and re-run. The code stays the same.';
+  $('r-submit').textContent = 'Update participant';
+  $('r-cancel').style.display = 'inline-block';
+  $('r-error').textContent = '';
+  $('researchApp').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function exitEditMode() {
+  editingCode = null;
+  $('formMode').textContent = '';
+  $('r-submit').textContent = 'Run model & record participant';
+  $('r-cancel').style.display = 'none';
+  $('r-code').textContent = pad(nextNum);
+}
+
+$('r-cancel').addEventListener('click', () => { exitEditMode(); $('r-error').textContent = ''; });
+
+/* ---- Delete one / clear all ---- */
+function deleteRecord(code) {
+  if (!confirm('Delete participant ' + code + '? This cannot be undone.')) return;
+  const idx = participants.findIndex(p => p.code === code);
+  if (idx === -1) return;
+  participants.splice(idx, 1);
+  if (editingCode === code) exitEditMode();
+  if (selectedCode === code) selectedCode = participants.length ? participants[participants.length - 1].code : null;
+  refreshAll();
+}
+
+$('r-clear').addEventListener('click', () => {
+  if (participants.length === 0) return;
+  if (!confirm('Clear all ' + participants.length + ' records for this session? This cannot be undone.')) return;
+  participants.length = 0;
+  nextNum = 1;
+  selectedCode = null;
+  exitEditMode();
+  refreshAll();
+});
+
+/* ---- Table (with row-click detail + per-row edit/delete via delegation) ---- */
+$('r-tbody').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  const tr = e.target.closest('tr.datarow');
+  if (!tr) return;
+  const code = tr.dataset.code;
+  if (btn && btn.dataset.act === 'edit') { e.stopPropagation(); startEdit(code); return; }
+  if (btn && btn.dataset.act === 'del') { e.stopPropagation(); deleteRecord(code); return; }
+  selectedCode = code;
+  renderDetail();
+  renderTable(); // refresh selected-row highlight
+});
+
+function renderTable() {
+  const tbody = $('r-tbody');
+  const table = $('r-table');
+  $('r-count').textContent = participants.length;
+
+  if (participants.length === 0) {
+    table.style.display = 'none';
+    $('emptyNote').style.display = 'block';
+    $('r-csv').disabled = $('r-json').disabled = $('r-clear').disabled = true;
+    tbody.innerHTML = '';
+    return;
+  }
+  $('emptyNote').style.display = 'none';
+  table.style.display = 'table';
+  $('r-csv').disabled = $('r-json').disabled = $('r-clear').disabled = false;
+
+  tbody.innerHTML = participants.map(r => `
+    <tr class="datarow ${r.code === selectedCode ? 'selected' : ''}" data-code="${r.code}">
+      <td class="left mono">${r.code}</td>
+      <td>${r.age}</td>
+      <td>${money(r.balance)}</td>
+      <td class="left">${r.fundType}</td>
+      <td>${r.feePct.toFixed(1)}</td>
+      <td>${money(r.feeDrag)}</td>
+      <td>${money(r.detVsStochasticGap)}</td>
+      <td>${r.survivalAssistedPct.toFixed(1)}%</td>
+      <td class="actions left">
+        <button class="secondary" data-act="edit">Edit</button>
+        <button class="danger" data-act="del">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+/* ---- Detail view (complete, labelled readout of one participant) ---- */
+function dl(k, v) { return `<div class="dl"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+function renderDetail() {
+  const empty = $('detailEmpty');
+  const content = $('detailContent');
+  const r = participants.find(p => p.code === selectedCode);
+  if (!r) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = 'block';
+
+  const inputsHtml = [
+    dl('Age', r.age),
+    dl('Current balance', money(r.balance)),
+    dl('Annual salary', money(r.salary)),
+    dl('Extra monthly contributions', money(r.extraMonthly)),
+    dl('Fund type', r.fundType),
+    dl('Annual fee', r.feePct.toFixed(1) + '%'),
+    dl('Retirement age', r.retireAge),
+    dl('Retirement type', r.retireType),
+    dl('Homeowner', r.homeowner)
+  ].join('');
+
+  const outputsHtml = [
+    dl('Deterministic projection', money(r.deterministicBalance)),
+    dl('ATO percentile', r.percentile + 'th (age bracket ' + r.percentileBracket + ')'),
+    dl('Fee drag (vs 0.5% fund)', money(r.feeDrag)),
+    dl('Det vs median-stochastic gap', money(r.detVsStochasticGap)),
+    dl('ASFA comfortable threshold', money(r.asfaComfortableThreshold)),
+    dl('Clears ASFA — deterministic', r.clearsDeterministic ? 'Yes' : 'No'),
+    dl('Clears ASFA — stochastic median', r.clearsStochasticMedian ? 'Yes' : 'No')
+  ].join('');
+
+  const fanHtml = [
+    dl('Fan chart — 10th pct', money(r.mc_p10)),
+    dl('Fan chart — 25th pct', money(r.mc_p25)),
+    dl('Fan chart — 50th pct (median)', money(r.mc_p50)),
+    dl('Fan chart — 75th pct', money(r.mc_p75)),
+    dl('Fan chart — 90th pct', money(r.mc_p90))
+  ].join('');
+
+  const survivalHtml = [
+    dl('Survival to 90 — assisted (with pension)', r.survivalAssistedPct.toFixed(1) + '%'),
+    dl('Survival to 90 — unassisted (super only)', r.survivalUnassistedPct.toFixed(1) + '%'),
+    dl('Pension gap', (r.pensionGapPp >= 0 ? '+' : '') + r.pensionGapPp.toFixed(1) + 'pp')
+  ].join('');
+
+  content.innerHTML = `
+    <div class="detail-code">${r.code}</div>
+    <h3>Inputs</h3>
+    <div class="detail-grid">${inputsHtml}</div>
+    <h3>Core outputs</h3>
+    <div class="detail-grid">${outputsHtml}</div>
+    <h3>Fan-chart percentile values (today's dollars)</h3>
+    <div class="detail-grid">${fanHtml}</div>
+    <h3>Survival to age 90</h3>
+    <div class="detail-grid">${survivalHtml}</div>
+    <p class="detail-note">All dollar figures in today's dollars. Illustrative modelling only — not financial advice.</p>`;
+}
+
+/* ---- Aggregates (descriptive statistics on a convenience sample) ---- */
+function renderAggregates() {
+  const n = participants.length;
+  if (n === 0) { $('aggEmpty').style.display = 'block'; $('aggContent').style.display = 'none'; return; }
+  $('aggEmpty').style.display = 'none';
+  $('aggContent').style.display = 'block';
+
+  const fees = participants.map(r => r.feeDrag);
+  const gaps = participants.map(r => r.detVsStochasticGap);
+  const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  const clearStoch = participants.filter(r => r.clearsStochasticMedian).length;
+  const clearDet = participants.filter(r => r.clearsDeterministic).length;
+  const divergence = participants.filter(r => r.clearsDeterministic && !r.clearsStochasticMedian).length;
+
+  $('agg-n').textContent = n;
+  $('agg-feemean').textContent = money(mean(fees));
+  $('agg-feerange').textContent = money(Math.min(...fees)) + ' – ' + money(Math.max(...fees));
+  $('agg-gapmean').textContent = money(mean(gaps));
+  $('agg-clearstoch').textContent = clearStoch + ' of ' + n;
+  $('agg-cleardet').textContent = clearDet + ' of ' + n;
+  $('agg-headline').innerHTML =
+    '<strong>Headline divergence:</strong> ' + divergence + ' of ' + n +
+    ' participant' + (n === 1 ? '' : 's') + ' would clear the ASFA comfortable balance under the naive single-number (deterministic) projection but fall short under the stochastic median.';
+}
+
+/* ---- One refresh keeps table, detail and aggregates in sync ---- */
+function refreshAll() {
+  renderTable();
+  renderDetail();
+  renderAggregates();
+}
+
+/* ---- Export (always reflects the current edited state) ---- */
+const CSV_COLUMNS = [
+  ['code', 'participant_code'],
+  ['age', 'age'],
+  ['balance', 'balance'],
+  ['salary', 'salary'],
+  ['extraMonthly', 'extra_monthly'],
+  ['fundType', 'fund_type'],
+  ['feePct', 'fee_pct'],
+  ['retireAge', 'retire_age'],
+  ['retireType', 'retire_type'],
+  ['homeowner', 'homeowner'],
+  ['deterministicBalance', 'deterministic_balance'],
+  ['percentile', 'percentile'],
+  ['percentileBracket', 'percentile_bracket'],
+  ['feeDrag', 'fee_drag'],
+  ['mc_p10', 'mc_p10'],
+  ['mc_p25', 'mc_p25'],
+  ['mc_p50', 'mc_p50_stochastic_median'],
+  ['mc_p75', 'mc_p75'],
+  ['mc_p90', 'mc_p90'],
+  ['survivalAssistedPct', 'survival_to_90_assisted_pct'],
+  ['survivalUnassistedPct', 'survival_to_90_unassisted_pct'],
+  ['pensionGapPp', 'pension_gap_pp'],
+  ['detVsStochasticGap', 'det_vs_stochastic_gap'],
+  ['asfaComfortableThreshold', 'asfa_comfortable_threshold'],
+  ['clearsStochasticMedian', 'clears_asfa_stochastic_median'],
+  ['clearsDeterministic', 'clears_asfa_deterministic']
+];
+
+function csvCell(v) {
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function stamp() {
+  const d = new Date();
+  return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') +
+         '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+}
+
+$('r-csv').addEventListener('click', () => {
+  if (participants.length === 0) return;
+  const header = CSV_COLUMNS.map(c => c[1]).join(',');
+  const rows = participants.map(r => CSV_COLUMNS.map(c => csvCell(r[c[0]])).join(','));
+  downloadBlob([header, ...rows].join('\n'), 'supercheck_research_' + stamp() + '.csv', 'text/csv');
+});
+
+$('r-json').addEventListener('click', () => {
+  if (participants.length === 0) return;
+  const payload = {
+    instrument: 'SuperCheck Research Instrument',
+    modelVersion: '1.2',
+    modelFinalised: '2026-06-18',
+    dataVintage: 'Chant West 2004-2024; Services Australia March 2026; ASFA Dec 2025 quarter; APRA MySuper 2023',
+    exportedAt: new Date().toISOString(),
+    sampleType: 'convenience sample, descriptive only',
+    n: participants.length,
+    participants
+  };
+  downloadBlob(JSON.stringify(payload, null, 2), 'supercheck_research_' + stamp() + '.json', 'application/json');
+});
+
+/* ---- Warn before leaving if unsaved records exist (session-only data) ---- */
+window.addEventListener('beforeunload', (e) => {
+  if (participants.length > 0) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+</body>
+</html>
